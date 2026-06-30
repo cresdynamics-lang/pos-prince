@@ -1,0 +1,172 @@
+export const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
+
+export type UserRole = "director" | "shop_manager" | "cashier";
+
+export type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  shop_id?: string | null;
+  permissions: string[];
+  is_active?: boolean;
+  is_super_admin?: boolean;
+};
+
+export const SUPER_ADMIN_EMAIL = "charles@prince-esquire.co.ke";
+
+export function isSuperAdmin(user: AuthUser | null): boolean {
+  if (!user) return false;
+  if (user.is_super_admin) return true;
+  return user.email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+}
+
+const TOKEN_KEY = "prince_pos_token";
+const USER_KEY = "prince_pos_user";
+const SESSION_COOKIE = "prince_pos_session";
+
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function getUser(): AuthUser | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
+function setSessionCookie() {
+  if (typeof document === "undefined") return;
+  document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=86400; SameSite=Lax`;
+}
+
+function clearSessionCookie() {
+  if (typeof document === "undefined") return;
+  document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+}
+
+export function setSession(token: string, user: AuthUser) {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  setSessionCookie();
+}
+
+export function clearSession() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  clearSessionCookie();
+}
+
+export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init.headers as Record<string, string>),
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  if (res.status === 401 && typeof window !== "undefined") {
+    clearSession();
+    window.location.href = "/login";
+    throw new Error("Session expired");
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? `Request failed (${res.status})`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function login(email: string, password: string) {
+  const data = await apiFetch<{ token: string; user: AuthUser }>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  setSession(data.token, data.user);
+  return data.user;
+}
+
+export function hasPermission(user: AuthUser | null, perm: string): boolean {
+  return !!user?.permissions?.includes(perm);
+}
+
+export function hasAnyPermission(user: AuthUser | null, perms: string[]): boolean {
+  return perms.some((p) => hasPermission(user, p));
+}
+
+/** Shop managers and cashiers — sales-focused UI, no revenue figures on dashboard. */
+export function isStaffUser(user: AuthUser | null): boolean {
+  return user?.role === "shop_manager" || user?.role === "cashier";
+}
+
+export const PERMS = {
+  dashboard: "dashboard.view",
+  analytics: "analytics.view",
+  inventory: "inventory.view",
+  stores: "stores.view",
+  storesEdit: "stores.edit",
+  users: "users.view",
+  usersCreate: "users.create",
+  usersEdit: "users.edit",
+  sales: "sales.view",
+  salesCreate: "sales.create",
+  revenue: "revenue.view",
+  finance: "finance.view",
+  financeEdit: "finance.edit",
+  pos: "pos.access",
+} as const;
+
+export type NavItem = {
+  href: string;
+  label: string;
+  permission: string;
+  icon: string;
+};
+
+export const NAV_ITEMS: NavItem[] = [
+  { href: "/admin/dashboard", label: "Dashboard", permission: PERMS.dashboard, icon: "◫" },
+  { href: "/admin/analytics", label: "Analytics", permission: PERMS.analytics, icon: "◔" },
+  { href: "/admin/sales", label: "Sales", permission: PERMS.sales, icon: "◎" },
+  { href: "/admin/revenue", label: "Revenue", permission: PERMS.revenue, icon: "◈" },
+  { href: "/admin/finance", label: "Finance", permission: PERMS.finance, icon: "₣" },
+  { href: "/admin/inventory", label: "Inventory", permission: PERMS.inventory, icon: "▦" },
+  { href: "/admin/stores", label: "Stores", permission: PERMS.stores, icon: "⌂" },
+  { href: "/admin/users", label: "Users", permission: PERMS.users, icon: "◉" },
+  { href: "/pos", label: "POS", permission: PERMS.pos, icon: "⛁" },
+];
+
+export const ALL_PERMISSIONS = [
+  { key: PERMS.dashboard, label: "View Dashboard" },
+  { key: PERMS.analytics, label: "View Analytics" },
+  { key: "inventory.edit", label: "Edit Inventory" },
+  { key: PERMS.inventory, label: "View Inventory" },
+  { key: PERMS.stores, label: "View Stores" },
+  { key: "stores.edit", label: "Edit Stores" },
+  { key: PERMS.users, label: "View Users" },
+  { key: PERMS.usersCreate, label: "Create Users" },
+  { key: "users.edit", label: "Edit Users" },
+  { key: PERMS.sales, label: "View Sales" },
+  { key: "sales.create", label: "Process Sales" },
+  { key: PERMS.revenue, label: "View Revenue" },
+  { key: PERMS.finance, label: "View Finance" },
+  { key: PERMS.financeEdit, label: "Record Expenses" },
+  { key: PERMS.pos, label: "Access POS" },
+];
+
+export const BRAND = {
+  name: "Prince Esquire",
+  phone: "0724-494089",
+  email: "prince-esquire@gmail.com",
+  web: "https://prince-esquire.co.ke",
+};
+
+// Re-export categories API from api.ts legacy
+export { fetchCategories, FALLBACK_CATEGORIES, type Category } from "./catalog";

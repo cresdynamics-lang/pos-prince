@@ -70,9 +70,24 @@ const (
 )
 
 type User struct {
-	ID    uuid.UUID `json:"id"`
-	Name  string    `json:"name"`
-	Email string    `json:"email"`
-	Role  UserRole  `json:"role"`
-	ShopID *uuid.UUID `json:"shop_id,omitempty"`
+	ID          uuid.UUID       `json:"id"`
+	Name        string          `json:"name"`
+	Email       string          `json:"email"`
+	Role        UserRole        `json:"role"`
+	ShopID      *uuid.UUID      `json:"shop_id,omitempty"`
+	Permissions json.RawMessage `json:"permissions,omitempty"`
+	IsActive    bool            `json:"is_active"`
+	CreatedAt   time.Time       `json:"created_at,omitempty"`
+}
+
+type UserPublic struct {
+	ID           uuid.UUID `json:"id"`
+	Name         string    `json:"name"`
+	Email        string    `json:"email"`
+	Role         UserRole  `json:"role"`
+	ShopID       *uuid.UUID `json:"shop_id,omitempty"`
+	Permissions  []string  `json:"permissions"`
+	IsActive     bool      `json:"is_active"`
+	IsSuperAdmin bool      `json:"is_super_admin"`
+	CreatedAt    time.Time `json:"created_at"`
 }

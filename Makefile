@@ -4,8 +4,12 @@ dev-db:
 	docker compose up -d postgres redis
 
 migrate:
-	psql "postgres://prince:prince_dev@localhost:5433/prince_pos?sslmode=disable" -f backend/migrations/001_initial_schema.sql
-	psql "postgres://prince:prince_dev@localhost:5433/prince_pos?sslmode=disable" -f backend/migrations/002_seed_categories.sql
+	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/001_initial_schema.sql
+	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/002_seed_categories.sql
+	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/003_auth_permissions.sql
+	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/005_discounts.sql
+	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/006_checkout.sql
+	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/007_expenses.sql
 
 dev-api:
 	cd backend && go run ./cmd/server

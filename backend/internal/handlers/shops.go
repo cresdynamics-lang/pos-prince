@@ -2,32 +2,50 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/cresdynamics-lang/pos-prince/backend/internal/models"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
+type shopResponse struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Location  *string `json:"location,omitempty"`
+	Phone     *string `json:"phone,omitempty"`
+	ManagerID *string `json:"manager_id,omitempty"`
+	IsActive  bool    `json:"is_active"`
+	CreatedAt string  `json:"created_at"`
+}
+
 func (h *Handler) ListShops(c *gin.Context) {
-	rows, err := h.DB.Query(c.Request.Context(), `
-		SELECT id, name, location, phone, manager_id, is_active, created_at
+	includeInactive := c.Query("include_inactive") == "1" || c.Query("include_inactive") == "true"
+	query := `
+		SELECT id::text, name, location, phone, manager_id::text, is_active, created_at
 		FROM shops
-		WHERE is_active = TRUE
-		ORDER BY name
-	`)
+	`
+	if !includeInactive {
+		query += ` WHERE is_active = TRUE`
+	}
+	query += ` ORDER BY name`
+
+	rows, err := h.DB.Query(c.Request.Context(), query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load shops"})
 		return
 	}
 	defer rows.Close()
 
-	shops := []models.Shop{}
+	shops := []shopResponse{}
 	for rows.Next() {
-		var s models.Shop
-		if err := rows.Scan(&s.ID, &s.Name, &s.Location, &s.Phone, &s.ManagerID, &s.IsActive, &s.CreatedAt); err != nil {
+		var s shopResponse
+		var createdAt time.Time
+		if err := rows.Scan(&s.ID, &s.Name, &s.Location, &s.Phone, &s.ManagerID, &s.IsActive, &createdAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse shops"})
 			return
 		}
+		s.CreatedAt = createdAt.Format(time.RFC3339)
 		shops = append(shops, s)
 	}
 

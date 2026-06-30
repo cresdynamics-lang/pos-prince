@@ -5,9 +5,8 @@ import { usePathname } from "next/navigation";
 import { BRAND } from "@/lib/api";
 
 const links = [
+  { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/pos", label: "POS" },
-  { href: "/inventory", label: "Inventory" },
-  { href: "/dashboard", label: "Dashboard" },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

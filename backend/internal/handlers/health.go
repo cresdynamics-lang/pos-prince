@@ -3,16 +3,18 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/cresdynamics-lang/pos-prince/backend/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Handler struct {
-	DB *pgxpool.Pool
+	DB     *pgxpool.Pool
+	Config config.Config
 }
 
-func New(db *pgxpool.Pool) *Handler {
-	return &Handler{DB: db}
+func New(db *pgxpool.Pool, cfg config.Config) *Handler {
+	return &Handler{DB: db, Config: cfg}
 }
 
 func (h *Handler) Health(c *gin.Context) {
