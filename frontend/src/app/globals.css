@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #e8ecf1;
+  --surface: #e8ecf1;
+  --text: #2d3748;
+  --muted: #718096;
+  --accent: #b8860b;
+  --accent-dark: #8b6914;
+  --shadow-light: #ffffff;
+  --shadow-dark: #c5ccd6;
+  --radius: 16px;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --font-sans: var(--font-geist-sans);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.neu-flat {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow:
+    8px 8px 16px var(--shadow-dark),
+    -8px -8px 16px var(--shadow-light);
+}
+
+.neu-inset {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow:
+    inset 6px 6px 12px var(--shadow-dark),
+    inset -6px -6px 12px var(--shadow-light);
+}
+
+.neu-pressed {
+  box-shadow:
+    inset 4px 4px 8px var(--shadow-dark),
+    inset -4px -4px 8px var(--shadow-light);
+}
+
+.neu-btn {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow:
+    6px 6px 12px var(--shadow-dark),
+    -6px -6px 12px var(--shadow-light);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.neu-btn:hover {
+  transform: translateY(-1px);
+}
+
+.neu-btn:active,
+.neu-btn.active {
+  box-shadow:
+    inset 4px 4px 8px var(--shadow-dark),
+    inset -4px -4px 8px var(--shadow-light);
+  transform: translateY(0);
+}
+
+.accent-text {
+  color: var(--accent-dark);
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
