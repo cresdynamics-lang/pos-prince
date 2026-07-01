@@ -112,16 +112,16 @@ EOF
 chown prince:prince "${APP_DIR}/backend/.env"
 chmod 600 "${APP_DIR}/backend/.env"
 
-log "Building API..."
-if [[ ! -x /usr/local/go/bin/go ]]; then
-  GO_TAR="go1.23.6.linux-amd64.tar.gz"
-  curl -fsSL "https://go.dev/dl/${GO_TAR}" -o /tmp/go.tgz
-  rm -rf /usr/local/go
-  tar -C /usr/local -xzf /tmp/go.tgz
-fi
-export PATH="/usr/local/go/bin:${PATH}"
-export GOTOOLCHAIN=auto
-sudo -u prince bash -c "cd '${APP_DIR}/backend' && go build -o bin/server ./cmd/server"
+log "Building API (Go via Docker)..."
+cd "${APP_DIR}/backend"
+docker build -t prince-pos-api-build .
+docker rm -f prince-api-extract 2>/dev/null || true
+cid=$(docker create --name prince-api-extract prince-pos-api-build)
+mkdir -p bin
+docker cp "${cid}:/app/server" bin/server
+docker rm prince-api-extract
+chmod +x bin/server
+chown prince:prince bin/server
 
 log "Building frontend..."
 cat > "${APP_DIR}/frontend/.env.production.local" <<EOF
