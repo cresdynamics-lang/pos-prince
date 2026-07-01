@@ -6,7 +6,7 @@ import { CategoryCrudPanel } from "@/components/admin/CategoryCrudPanel";
 import { ProductCrudPanel } from "@/components/admin/ProductCrudPanel";
 import { ProductDetailPanel } from "@/components/admin/ProductDetailPanel";
 import { FALLBACK_CATEGORIES, type Category } from "@/lib/catalog";
-import { apiFetch } from "@/lib/auth";
+import { apiFetch, getUser, hasPermission, PERMS } from "@/lib/auth";
 import { useStore } from "@/lib/store-context";
 
 type InventoryRow = {
@@ -31,6 +31,8 @@ type Tab = "stock" | "products" | "categories";
 
 export function InventoryAdminPage() {
   const { selectedStoreId } = useStore();
+  const me = getUser();
+  const canEditInventory = hasPermission(me, PERMS.inventoryEdit);
   const [tab, setTab] = useState<Tab>("stock");
   const [categories, setCategories] = useState<Category[]>(FALLBACK_CATEGORIES);
   const [selected, setSelected] = useState<string | null>(null);
@@ -81,8 +83,12 @@ export function InventoryAdminPage() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "stock", label: "Stock" },
-    { id: "products", label: "Products" },
-    { id: "categories", label: "Categories" },
+    ...(canEditInventory
+      ? ([
+          { id: "products" as Tab, label: "Products" },
+          { id: "categories" as Tab, label: "Categories" },
+        ] as const)
+      : []),
   ];
 
   return (
@@ -103,7 +109,9 @@ export function InventoryAdminPage() {
       {tab === "stock" && (
         <>
           <p className="text-sm text-[var(--muted)]">
-            Click any row to update product details, add stock, move between stores, or record a sale.
+            Click any row to view stock levels
+            {(canEditInventory || hasPermission(me, PERMS.salesCreate)) &&
+              " — edit, transfer, or record sales if your role allows."}
           </p>
           <div className="grid items-start gap-6 lg:grid-cols-[280px_1fr]">
             <aside className="sticky top-4 max-h-[calc(100vh-10rem)] self-start overflow-y-auto">
@@ -171,6 +179,7 @@ export function InventoryAdminPage() {
       {tab === "products" && (
         <ProductCrudPanel
           categories={categories}
+          canEdit={canEditInventory}
           onChanged={() => {
             loadCategories();
             load();
@@ -180,7 +189,7 @@ export function InventoryAdminPage() {
       )}
 
       {tab === "categories" && (
-        <CategoryCrudPanel categories={categories} onChanged={loadCategories} />
+        <CategoryCrudPanel categories={categories} canEdit={canEditInventory} onChanged={loadCategories} />
       )}
 
       {activeVariant && (
@@ -188,6 +197,7 @@ export function InventoryAdminPage() {
           variantId={activeVariant}
           shops={shops}
           categories={categories}
+          canEditInventory={canEditInventory}
           onClose={() => setActiveVariant(null)}
           onUpdated={load}
         />

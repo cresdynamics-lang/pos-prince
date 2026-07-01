@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCategoryOptions } from "@/components/admin/CategoryCrudPanel";
 import type { Category } from "@/lib/catalog";
-import { apiFetch } from "@/lib/auth";
+import { apiFetch, getUser, hasPermission, PERMS } from "@/lib/auth";
 
 type VariantDetail = {
   id: string;
@@ -37,9 +37,29 @@ type Props = {
   categories: Category[];
   onClose: () => void;
   onUpdated: () => void;
+  canEditInventory?: boolean;
 };
 
-export function ProductDetailPanel({ variantId, shops, categories, onClose, onUpdated }: Props) {
+export function ProductDetailPanel({
+  variantId,
+  shops,
+  categories,
+  onClose,
+  onUpdated,
+  canEditInventory = true,
+}: Props) {
+  const me = getUser();
+  const canRecordSale = hasPermission(me, PERMS.salesCreate);
+  const tabs = useMemo(
+    () =>
+      [
+        { id: "details" as const, label: "Details", show: canEditInventory },
+        { id: "stock" as const, label: "Add stock", show: canEditInventory },
+        { id: "transfer" as const, label: "Move stock", show: canEditInventory },
+        { id: "sale" as const, label: "Sale", show: canRecordSale },
+      ].filter((t) => t.show),
+    [canEditInventory, canRecordSale],
+  );
   const categoryOptions = useCategoryOptions(categories);
   const [variant, setVariant] = useState<VariantDetail | null>(null);
   const [stores, setStores] = useState<StoreStock[]>([]);
@@ -88,9 +108,15 @@ export function ProductDetailPanel({ variantId, shops, categories, onClose, onUp
     load();
   }, [load]);
 
-  if (!variantId) return null;
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.some((t) => t.id === section)) {
+      setSection(tabs[0].id);
+    }
+  }, [section, tabs]);
 
   const discountPreview = Math.max(0, (basePrice - salePrice) * saleQty);
+
+  if (!variantId) return null;
 
   async function saveProduct() {
     if (!variant) return;
@@ -170,13 +196,6 @@ export function ProductDetailPanel({ variantId, shops, categories, onClose, onUp
       setMsg(e instanceof Error ? e.message : "Sale failed");
     }
   }
-
-  const tabs = [
-    { id: "details" as const, label: "Details" },
-    { id: "stock" as const, label: "Add stock" },
-    { id: "transfer" as const, label: "Move stock" },
-    { id: "sale" as const, label: "Sale" },
-  ];
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>

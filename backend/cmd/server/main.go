@@ -32,6 +32,7 @@ func main() {
 	}
 	db.EnsureBootstrapUser(context.Background(), pool, email, pass, name)
 	db.EnsureDemoCatalog(context.Background(), pool)
+	db.EnsureLeafCategoryProducts(context.Background(), pool)
 
 	r := router.New(pool, cfg)
 	addr := ":" + cfg.Port

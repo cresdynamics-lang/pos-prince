@@ -37,9 +37,10 @@ function flattenCategories(categories: Category[], parentName = ""): FlatCategor
 type Props = {
   categories: Category[];
   onChanged: () => void;
+  canEdit?: boolean;
 };
 
-export function CategoryCrudPanel({ categories, onChanged }: Props) {
+export function CategoryCrudPanel({ categories, onChanged, canEdit = true }: Props) {
   const flat = useMemo(() => flattenCategories(categories), [categories]);
   const parents = useMemo(() => flat.filter((c) => !c.parent_id), [flat]);
 
@@ -123,37 +124,40 @@ export function CategoryCrudPanel({ categories, onChanged }: Props) {
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Parent</th>
               <th className="px-4 py-3">Variants</th>
-              <th className="px-4 py-3">Actions</th>
+              {canEdit && <th className="px-4 py-3">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {flat.map((cat) => (
               <tr
                 key={cat.id}
-                className={`border-b border-[var(--shadow-dark)]/20 cursor-pointer hover:opacity-80 ${
-                  editingId === cat.id ? "bg-[var(--shadow-dark)]/10" : ""
-                }`}
-                onClick={() => startEdit(cat)}
+                className={`border-b border-[var(--shadow-dark)]/20 ${
+                  canEdit ? "cursor-pointer hover:opacity-80" : ""
+                } ${editingId === cat.id ? "bg-[var(--shadow-dark)]/10" : ""}`}
+                onClick={() => canEdit && startEdit(cat)}
               >
                 <td className="px-4 py-3 font-medium">{cat.name}</td>
                 <td className="px-4 py-3 text-[var(--muted)]">{cat.parent_name || "—"}</td>
                 <td className="px-4 py-3 text-xs">{cat.variant_types.join(", ") || "—"}</td>
-                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    className="neu-btn px-2 py-1 text-xs text-red-700"
-                    onClick={() => remove(cat.id, cat.name)}
-                  >
-                    Delete
-                  </button>
-                </td>
+                {canEdit && (
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="neu-btn px-2 py-1 text-xs text-red-700"
+                      onClick={() => remove(cat.id, cat.name)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <aside className="sticky top-4 max-h-[calc(100vh-10rem)] self-start overflow-y-auto neu-flat p-4">
+      {canEdit ? (
+        <aside className="sticky top-4 max-h-[calc(100vh-10rem)] self-start overflow-y-auto neu-flat p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold accent-text">
             {editingId ? "Edit category" : "New category"}
@@ -199,6 +203,9 @@ export function CategoryCrudPanel({ categories, onChanged }: Props) {
           {msg && <p className="text-xs text-[var(--muted)]">{msg}</p>}
         </div>
       </aside>
+      ) : (
+        <p className="text-sm text-[var(--muted)]">View-only — you need inventory edit permission to manage categories.</p>
+      )}
     </div>
   );
 }

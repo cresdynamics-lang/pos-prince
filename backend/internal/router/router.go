@@ -68,9 +68,9 @@ func New(pool *pgxpool.Pool, cfg config.Config) *gin.Engine {
 			protected.POST("/sales/checkout", middleware.RequirePermission(auth.PermSalesC), h.CheckoutSale)
 
 			protected.GET("/users", middleware.RequirePermission(auth.PermUsers), h.ListUsers)
-			protected.POST("/users", middleware.RequireSuperAdmin(), h.CreateUser)
-			protected.PATCH("/users/:id", middleware.RequireSuperAdmin(), h.UpdateUser)
-			protected.DELETE("/users/:id", middleware.RequireSuperAdmin(), h.DeleteUser)
+			protected.POST("/users", middleware.RequirePermissionOrSuperAdmin(auth.PermUsersC), h.CreateUser)
+			protected.PATCH("/users/:id", middleware.RequirePermissionOrSuperAdmin(auth.PermUsersE), h.UpdateUser)
+			protected.DELETE("/users/:id", middleware.RequirePermissionOrSuperAdmin(auth.PermUsersE), h.DeleteUser)
 		}
 	}
 

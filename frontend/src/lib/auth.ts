@@ -1,5 +1,6 @@
 export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
+  process.env.NEXT_PUBLIC_API_URL ??
+  (typeof window !== "undefined" ? "/api/v1" : "http://localhost:8080/api/v1");
 
 export type UserRole = "director" | "shop_manager" | "cashier";
 
@@ -111,6 +112,7 @@ export const PERMS = {
   dashboard: "dashboard.view",
   analytics: "analytics.view",
   inventory: "inventory.view",
+  inventoryEdit: "inventory.edit",
   stores: "stores.view",
   storesEdit: "stores.edit",
   users: "users.view",
@@ -160,6 +162,32 @@ export const ALL_PERMISSIONS = [
   { key: PERMS.financeEdit, label: "Record Expenses" },
   { key: PERMS.pos, label: "Access POS" },
 ];
+
+export function permissionForPath(pathname: string): string | null {
+  if (pathname.startsWith("/admin/expenses")) {
+    return null; // checked via canAccessExpenses
+  }
+  const item = NAV_ITEMS.find(
+    (n) => pathname === n.href || pathname.startsWith(n.href + "/"),
+  );
+  return item?.permission ?? null;
+}
+
+export function canAccessPath(user: AuthUser | null, pathname: string): boolean {
+  if (!user) return false;
+  if (pathname.startsWith("/admin/expenses")) {
+    return hasAnyPermission(user, [
+      PERMS.finance,
+      PERMS.financeEdit,
+      PERMS.revenue,
+      PERMS.sales,
+      PERMS.salesCreate,
+    ]);
+  }
+  const perm = permissionForPath(pathname);
+  if (!perm) return true;
+  return hasPermission(user, perm);
+}
 
 export const BRAND = {
   name: "Prince Esquire",

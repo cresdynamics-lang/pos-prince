@@ -5,7 +5,9 @@ import {
   ALL_PERMISSIONS,
   apiFetch,
   getUser,
+  hasPermission,
   isSuperAdmin,
+  PERMS,
   type AuthUser,
   type UserRole,
 } from "@/lib/auth";
@@ -51,7 +53,9 @@ export function UsersPageClient() {
   const [msg, setMsg] = useState("");
 
   const me = getUser();
-  const canManage = isSuperAdmin(me);
+  const canCreate = isSuperAdmin(me) || hasPermission(me, PERMS.usersCreate);
+  const canEdit = isSuperAdmin(me) || hasPermission(me, PERMS.usersEdit);
+  const canManage = canCreate || canEdit;
 
   function loadUsers() {
     apiFetch<{ users: AuthUser[] }>("/users")
@@ -95,6 +99,7 @@ export function UsersPageClient() {
 
   function togglePerm(key: string) {
     if (USER_MGMT.has(key)) return;
+    if (!isSuperAdmin(me) && !me?.permissions?.includes(key)) return;
     setForm((f) => ({
       ...f,
       permissions: f.permissions.includes(key)
@@ -161,24 +166,28 @@ export function UsersPageClient() {
     }
   }
 
-  const editablePerms = ALL_PERMISSIONS.filter((p) => !USER_MGMT.has(p.key));
+  const editablePerms = ALL_PERMISSIONS.filter((p) => {
+    if (USER_MGMT.has(p.key)) return false;
+    if (isSuperAdmin(me)) return true;
+    return me?.permissions?.includes(p.key) ?? false;
+  });
   const editingSuperAdmin = editing?.is_super_admin;
 
   return (
     <div className="space-y-6">
       {!canManage && (
         <p className="text-sm text-[var(--muted)]">
-          Only the super admin (Charles) can create, edit, or remove users. You have read-only access.
+          You have read-only access to the user list. Ask a director or super admin to create accounts.
         </p>
       )}
 
-      {canManage && (
+      {canCreate && (
         <button type="button" onClick={startCreate} className="neu-btn px-4 py-2 text-sm accent-text">
           + Create user
         </button>
       )}
 
-      {showForm && canManage && (
+      {showForm && (canCreate || (canEdit && editing)) && (
         <form onSubmit={handleSave} className="neu-flat space-y-4 p-6">
           <h3 className="font-semibold">{editing ? "Edit user" : "New user"}</h3>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -294,7 +303,7 @@ export function UsersPageClient() {
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3">Store</th>
               <th className="px-4 py-3">Status</th>
-              {canManage && <th className="px-4 py-3">Actions</th>}
+              {canEdit && <th className="px-4 py-3">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -318,7 +327,7 @@ export function UsersPageClient() {
                       {u.is_active !== false ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  {canManage && (
+                  {canEdit && (
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <button
@@ -345,7 +354,7 @@ export function UsersPageClient() {
             })}
             {users.length === 0 && (
               <tr>
-                <td colSpan={canManage ? 6 : 5} className="px-4 py-8 text-center text-[var(--muted)]">
+                <td colSpan={canEdit ? 6 : 5} className="px-4 py-8 text-center text-[var(--muted)]">
                   No users loaded.
                 </td>
               </tr>

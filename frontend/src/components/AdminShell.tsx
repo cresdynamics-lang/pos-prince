@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   BRAND,
   NAV_ITEMS,
+  canAccessPath,
   clearSession,
   getUser,
   hasAnyPermission,
@@ -42,7 +43,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       return;
     }
     setUser(u);
-  }, [router]);
+    if (pathname.startsWith("/admin") && !canAccessPath(u, pathname)) {
+      const fallback = NAV_ITEMS.find((item) => hasPermission(u, item.permission));
+      router.replace(fallback?.href ?? "/login");
+    }
+  }, [router, pathname]);
 
   if (!user) {
     return (

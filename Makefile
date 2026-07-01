@@ -10,6 +10,7 @@ migrate:
 	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/005_discounts.sql
 	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/006_checkout.sql
 	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/007_expenses.sql
+	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/008_daily_notes.sql
 	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/009_subcategory_products.sql
 
 dev-api:

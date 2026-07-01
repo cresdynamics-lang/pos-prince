@@ -24,9 +24,10 @@ type Props = {
   categories: Category[];
   onChanged: () => void;
   onOpenVariant?: (variantId: string) => void;
+  canEdit?: boolean;
 };
 
-export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props) {
+export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit = true }: Props) {
   const sellableCategories = useSellableCategoryOptions(categories);
   const parentCategories = categories;
   const [products, setProducts] = useState<Product[]>([]);
@@ -187,7 +188,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
                 <th className="px-4 py-3">Category</th>
                 <th className="px-4 py-3">Price</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Actions</th>
+                {canEdit && <th className="px-4 py-3">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -214,35 +215,37 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {!p.provisioned ? (
-                        <button
-                          type="button"
-                          className="neu-btn px-2 py-1 text-xs accent-text"
-                          onClick={() => {
-                            setCategoryId(p.category_id);
-                            setShowForm(true);
-                          }}
-                        >
-                          Set up
-                        </button>
-                      ) : (
-                        <>
-                          {onOpenVariant && (
-                            <button type="button" className="neu-btn px-2 py-1 text-xs" onClick={() => startEdit(p)}>
-                              Stock
-                            </button>
-                          )}
-                          {p.is_active && (
-                            <button type="button" className="neu-btn px-2 py-1 text-xs text-red-700" onClick={() => deactivate(p)}>
-                              Deactivate
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </td>
+                  {canEdit && (
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {!p.provisioned ? (
+                          <button
+                            type="button"
+                            className="neu-btn px-2 py-1 text-xs accent-text"
+                            onClick={() => {
+                              setCategoryId(p.category_id);
+                              setShowForm(true);
+                            }}
+                          >
+                            Set up
+                          </button>
+                        ) : (
+                          <>
+                            {onOpenVariant && (
+                              <button type="button" className="neu-btn px-2 py-1 text-xs" onClick={() => startEdit(p)}>
+                                Stock
+                              </button>
+                            )}
+                            {p.is_active && (
+                              <button type="button" className="neu-btn px-2 py-1 text-xs text-red-700" onClick={() => deactivate(p)}>
+                                Deactivate
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
               {visibleProducts.length === 0 && (
@@ -258,7 +261,8 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
         {msg && !showForm && <p className="text-xs text-[var(--muted)]">{msg}</p>}
       </div>
 
-      <aside className="sticky top-4 max-h-[calc(100vh-10rem)] self-start overflow-y-auto neu-flat p-4">
+      {canEdit ? (
+        <aside className="sticky top-4 max-h-[calc(100vh-10rem)] self-start overflow-y-auto neu-flat p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold accent-text">Set up product</h3>
           <button type="button" className="neu-btn px-3 py-1.5 text-sm accent-text" onClick={startCreate}>
@@ -338,6 +342,9 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
           </div>
         )}
       </aside>
+      ) : (
+        <p className="text-sm text-[var(--muted)]">View-only — pricing and setup require inventory edit permission.</p>
+      )}
     </div>
   );
 }

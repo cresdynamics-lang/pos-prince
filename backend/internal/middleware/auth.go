@@ -45,6 +45,22 @@ func RequirePermission(perm string) gin.HandlerFunc {
 	}
 }
 
+func RequirePermissionOrSuperAdmin(perm string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		raw, ok := c.Get(claimsKey)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization required"})
+			return
+		}
+		claims := raw.(*auth.Claims)
+		if auth.IsSuperAdmin(claims.Email) || auth.HasPermission(claims.Permissions, perm) {
+			c.Next()
+			return
+		}
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+	}
+}
+
 func RequireAnyPermission(perms ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		raw, ok := c.Get(claimsKey)

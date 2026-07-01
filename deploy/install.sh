@@ -5,7 +5,9 @@ set -euo pipefail
 APP_SRC="${APP_SRC:-/home/prince/pos-prince}"
 APP_DIR="/opt/pos-prince"
 DOMAIN_WEB="pos.prince-esquire.co.ke"
-DOMAIN_API="pos-api.prince-esquire.co.ke"
+SERVER_IP="${SERVER_IP:-137.184.63.96}"
+# Optional separate API subdomain — leave unset to serve /api on the web domain only
+DOMAIN_API="${DOMAIN_API:-}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
 JWT_SECRET="${JWT_SECRET:-$(openssl rand -hex 32)}"
 if [[ -z "${POSTGRES_PASSWORD}" && -f /opt/pos-prince/deploy/.env ]]; then
@@ -109,7 +111,7 @@ PORT=8080
 DATABASE_URL=${DB_URL}
 REDIS_URL=redis://127.0.0.1:6380
 JWT_SECRET=${JWT_SECRET}
-CORS_ORIGINS=https://${DOMAIN_WEB}
+CORS_ORIGINS=https://${DOMAIN_WEB},http://${SERVER_IP}
 BOOTSTRAP_ADMIN_EMAIL=charles@prince-esquire.co.ke
 BOOTSTRAP_ADMIN_PASSWORD=C.Mutunga
 BOOTSTRAP_ADMIN_NAME=Charles Mutunga
@@ -129,8 +131,12 @@ chmod +x bin/server
 chown prince:prince bin/server
 
 log "Building frontend..."
+API_PUBLIC_URL="/api/v1"
+if [[ -n "${DOMAIN_API}" ]]; then
+  API_PUBLIC_URL="https://${DOMAIN_API}/api/v1"
+fi
 cat > "${APP_DIR}/frontend/.env.production.local" <<EOF
-NEXT_PUBLIC_API_URL=https://${DOMAIN_API}/api/v1
+NEXT_PUBLIC_API_URL=${API_PUBLIC_URL}
 EOF
 chown prince:prince "${APP_DIR}/frontend/.env.production.local"
 sudo -u prince bash -c "cd '${APP_DIR}/frontend' && npm ci && NODE_OPTIONS='--max-old-space-size=768' npm run build"
@@ -146,20 +152,31 @@ systemctl restart prince-pos-web
 
 log "Configuring nginx..."
 cp "${APP_DIR}/deploy/nginx-pos.conf" /etc/nginx/sites-available/${DOMAIN_WEB}
-cp "${APP_DIR}/deploy/nginx-pos-api.conf" /etc/nginx/sites-available/${DOMAIN_API}
 ln -sf /etc/nginx/sites-available/${DOMAIN_WEB} /etc/nginx/sites-enabled/${DOMAIN_WEB}
-ln -sf /etc/nginx/sites-available/${DOMAIN_API} /etc/nginx/sites-enabled/${DOMAIN_API}
+if [[ -n "${DOMAIN_API}" ]]; then
+  cp "${APP_DIR}/deploy/nginx-pos-api.conf" /etc/nginx/sites-available/${DOMAIN_API}
+  ln -sf /etc/nginx/sites-available/${DOMAIN_API} /etc/nginx/sites-enabled/${DOMAIN_API}
+fi
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
 log "Issuing SSL certificates..."
-certbot --nginx -d "${DOMAIN_WEB}" -d "${DOMAIN_API}" --non-interactive --agree-tos -m prince-esquire@gmail.com --redirect || true
+if [[ -n "${DOMAIN_API}" ]]; then
+  certbot --nginx -d "${DOMAIN_WEB}" -d "${DOMAIN_API}" --non-interactive --agree-tos -m prince-esquire@gmail.com --redirect || true
+else
+  certbot --nginx -d "${DOMAIN_WEB}" --non-interactive --agree-tos -m prince-esquire@gmail.com --redirect || true
+fi
 
 log "Done."
 echo ""
+echo "  IP:   http://${SERVER_IP}"
 echo "  Web:  https://${DOMAIN_WEB}"
-echo "  API:  https://${DOMAIN_API}/api/health"
+if [[ -n "${DOMAIN_API}" ]]; then
+  echo "  API:  https://${DOMAIN_API}/api/health"
+else
+  echo "  API:  https://${DOMAIN_WEB}/api/health (same domain)"
+fi
 echo "  Login: charles@prince-esquire.co.ke / C.Mutunga"
 echo ""
 systemctl is-active prince-pos-api prince-pos-web docker nginx

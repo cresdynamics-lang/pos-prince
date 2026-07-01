@@ -47,6 +47,9 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		return
 	}
 
+	actor := middleware.GetClaims(c)
+	actorIsSuperAdmin := actor != nil && auth.IsSuperAdmin(actor.Email)
+
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not hash password"})
@@ -57,8 +60,12 @@ func (h *Handler) CreateUser(c *gin.Context) {
 	if len(perms) == 0 {
 		perms = auth.DefaultPermissions(req.Role)
 	}
-	// Non-super-admin accounts cannot receive user-management permissions.
-	perms = stripUserManagementPerms(perms)
+	if !actorIsSuperAdmin {
+		perms = stripUserManagementPerms(perms)
+		if actor != nil {
+			perms = clampPermissions(perms, actor.Permissions)
+		}
+	}
 	permsJSON, _ := json.Marshal(perms)
 
 	var shopID *uuid.UUID
@@ -132,6 +139,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "authorization required"})
 		return
 	}
+	actorIsSuperAdmin := auth.IsSuperAdmin(actor.Email)
 
 	var targetEmail string
 	var targetActive bool
@@ -168,7 +176,10 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 			req.Permissions = auth.DefaultPermissions(models.RoleDirector)
 		}
 	} else if req.Permissions != nil {
-		req.Permissions = stripUserManagementPerms(req.Permissions)
+		if !actorIsSuperAdmin {
+			req.Permissions = stripUserManagementPerms(req.Permissions)
+			req.Permissions = clampPermissions(req.Permissions, actor.Permissions)
+		}
 	}
 
 	var passwordHash *string
@@ -293,6 +304,23 @@ func stripUserManagementPerms(perms []string) []string {
 			continue
 		}
 		out = append(out, p)
+	}
+	return out
+}
+
+func clampPermissions(target, actor []string) []string {
+	if len(actor) == 0 {
+		return target
+	}
+	allowed := make(map[string]struct{}, len(actor))
+	for _, p := range actor {
+		allowed[p] = struct{}{}
+	}
+	out := make([]string, 0, len(target))
+	for _, p := range target {
+		if _, ok := allowed[p]; ok {
+			out = append(out, p)
+		}
 	}
 	return out
 }
