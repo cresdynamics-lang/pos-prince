@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useCategoryOptions } from "@/components/admin/CategoryCrudPanel";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSellableCategoryOptions } from "@/components/admin/CategoryCrudPanel";
 import type { Category } from "@/lib/catalog";
 import { apiFetch } from "@/lib/auth";
 
@@ -11,11 +11,13 @@ type Product = {
   brand?: string | null;
   category_id: string;
   category_name: string;
+  parent_name?: string;
   category_slug: string;
   base_price: number;
   cost_price: number;
   is_active: boolean;
   variant_count: number;
+  provisioned: boolean;
 };
 
 type Props = {
@@ -25,15 +27,15 @@ type Props = {
 };
 
 export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props) {
-  const categoryOptions = useCategoryOptions(categories);
+  const sellableCategories = useSellableCategoryOptions(categories);
+  const parentCategories = categories;
   const [products, setProducts] = useState<Product[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [parentFilter, setParentFilter] = useState("");
   const [showInactive, setShowInactive] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
 
-  const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [brand, setBrand] = useState("");
   const [basePrice, setBasePrice] = useState(0);
@@ -43,21 +45,30 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
 
   const load = useCallback(() => {
     const params = new URLSearchParams({ active: "false" });
-    if (categoryFilter) params.set("category_id", categoryFilter);
+    if (parentFilter) params.set("parent_id", parentFilter);
     apiFetch<{ products: Product[] }>(`/products?${params}`)
       .then((d) => setProducts(d.products ?? []))
       .catch(() => setProducts([]));
-  }, [categoryFilter]);
+  }, [parentFilter]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const visibleProducts = showInactive ? products : products.filter((p) => p.is_active);
+  const unprovisioned = useMemo(
+    () => sellableCategories.filter((c) => !products.find((p) => p.category_id === c.id && p.provisioned)),
+    [sellableCategories, products],
+  );
+
+  const selectedCategory = sellableCategories.find((c) => c.id === categoryId);
+
+  const visibleProducts = showInactive
+    ? products
+    : products.filter((p) => p.provisioned && p.is_active);
 
   function resetFields() {
-    setName("");
-    setCategoryId(categoryOptions.find((c) => c.parent_id)?.id ?? categoryOptions[0]?.id ?? "");
+    const first = unprovisioned[0]?.id ?? sellableCategories[0]?.id ?? "";
+    setCategoryId(first);
     setBrand("");
     setBasePrice(0);
     setCostPrice(0);
@@ -77,13 +88,13 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
   }
 
   function startEdit(p: Product) {
-    setSelectedId(p.id);
+    setSelectedId(p.id || p.category_id);
     openStock(p);
   }
 
   async function save() {
-    if (!name.trim() || !categoryId) {
-      setMsg("Name and category are required");
+    if (!categoryId) {
+      setMsg("Choose a subcategory");
       return;
     }
     setMsg("");
@@ -95,7 +106,6 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
       await apiFetch("/products", {
         method: "POST",
         body: JSON.stringify({
-          name: name.trim(),
           category_id: categoryId,
           brand,
           base_price: basePrice,
@@ -104,7 +114,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
           initial_stock_per_store: initialStock,
         }),
       });
-      setMsg("Product created");
+      setMsg("Product set up");
       closeForm();
       resetFields();
       load();
@@ -114,21 +124,8 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
     }
   }
 
-  async function remove(p: Product) {
-    if (!confirm(`Delete "${p.name}" permanently?`)) return;
-    setMsg("");
-    try {
-      await apiFetch(`/products/${p.id}`, { method: "DELETE" });
-      closeForm();
-      load();
-      onChanged();
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Delete failed");
-    }
-  }
-
   async function deactivate(p: Product) {
-    if (!confirm(`Deactivate "${p.name}"?`)) return;
+    if (!p.id || !confirm(`Deactivate "${p.name}"?`)) return;
     try {
       await apiFetch(`/products/${p.id}`, {
         method: "PATCH",
@@ -142,12 +139,14 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
   }
 
   async function openStock(p: Product) {
-    if (!onOpenVariant) return;
+    if (!onOpenVariant || !p.provisioned) return;
     try {
-      const d = await apiFetch<{ variants: { id: string; product: string }[] }>("/variants");
-      const variant = (d.variants ?? []).find((v) => v.product === p.name);
+      const d = await apiFetch<{ variants: { id: string; product: string }[] }>(
+        `/variants?category_slug=${encodeURIComponent(p.category_slug)}`,
+      );
+      const variant = (d.variants ?? [])[0];
       if (variant) onOpenVariant(variant.id);
-      else setMsg("No variant found — check the Stock tab");
+      else setMsg("No variants yet — check the Stock tab");
     } catch {
       setMsg("Could not open product stock");
     }
@@ -156,17 +155,18 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[1fr_320px]">
       <div className="min-w-0 space-y-4">
+        <p className="text-sm text-[var(--muted)]">
+          Each subcategory is a product (e.g. Loafers, Ties, Linen Shirts). Stock is tracked per shop and can differ between locations.
+        </p>
         <div className="flex flex-wrap items-center gap-3">
           <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            value={parentFilter}
+            onChange={(e) => setParentFilter(e.target.value)}
             className="neu-inset px-3 py-2 text-sm"
           >
             <option value="">All categories</option>
-            {categoryOptions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.parent_name ? `${c.parent_name} › ${c.name}` : c.name}
-              </option>
+            {parentCategories.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
           <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
@@ -183,7 +183,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
               <tr className="border-b border-[var(--shadow-dark)]/30 text-xs uppercase text-[var(--muted)]">
-                <th className="px-4 py-3">Product</th>
+                <th className="px-4 py-3">Product (subcategory)</th>
                 <th className="px-4 py-3">Category</th>
                 <th className="px-4 py-3">Price</th>
                 <th className="px-4 py-3">Status</th>
@@ -193,33 +193,53 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
             <tbody>
               {visibleProducts.map((p) => (
                 <tr
-                  key={p.id}
+                  key={p.category_id}
                   className={`border-b border-[var(--shadow-dark)]/20 ${
-                    selectedId === p.id ? "bg-[var(--shadow-dark)]/10" : ""
+                    selectedId === (p.id || p.category_id) ? "bg-[var(--shadow-dark)]/10" : ""
                   }`}
                 >
                   <td className="px-4 py-3 font-medium">{p.name}</td>
-                  <td className="px-4 py-3 text-[var(--muted)]">{p.category_name}</td>
-                  <td className="px-4 py-3">KES {p.base_price.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-[var(--muted)]">
+                    {p.parent_name || p.category_name}
+                  </td>
                   <td className="px-4 py-3">
-                    <span className={p.is_active ? "accent-text" : "text-red-700"}>
-                      {p.is_active ? "Active" : "Inactive"}
-                    </span>
+                    {p.provisioned ? `KES ${p.base_price.toLocaleString()}` : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {!p.provisioned ? (
+                      <span className="text-amber-700">Not set up</span>
+                    ) : (
+                      <span className={p.is_active ? "accent-text" : "text-red-700"}>
+                        {p.is_active ? "Active" : "Inactive"}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      <button type="button" className="neu-btn px-2 py-1 text-xs" onClick={() => startEdit(p)}>
-                        Edit
-                      </button>
-                      {onOpenVariant && (
-                        <button type="button" className="neu-btn px-2 py-1 text-xs" onClick={() => openStock(p)}>
-                          Stock
+                      {!p.provisioned ? (
+                        <button
+                          type="button"
+                          className="neu-btn px-2 py-1 text-xs accent-text"
+                          onClick={() => {
+                            setCategoryId(p.category_id);
+                            setShowForm(true);
+                          }}
+                        >
+                          Set up
                         </button>
-                      )}
-                      {p.is_active && (
-                        <button type="button" className="neu-btn px-2 py-1 text-xs text-red-700" onClick={() => deactivate(p)}>
-                          Deactivate
-                        </button>
+                      ) : (
+                        <>
+                          {onOpenVariant && (
+                            <button type="button" className="neu-btn px-2 py-1 text-xs" onClick={() => startEdit(p)}>
+                              Stock
+                            </button>
+                          )}
+                          {p.is_active && (
+                            <button type="button" className="neu-btn px-2 py-1 text-xs text-red-700" onClick={() => deactivate(p)}>
+                              Deactivate
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </td>
@@ -228,7 +248,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
               {visibleProducts.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-[var(--muted)]">
-                    No products. Click + New product to add one.
+                    No subcategories in this category.
                   </td>
                 </tr>
               )}
@@ -240,41 +260,40 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
 
       <aside className="sticky top-4 max-h-[calc(100vh-10rem)] self-start overflow-y-auto neu-flat p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold accent-text">Products</h3>
+          <h3 className="text-sm font-semibold accent-text">Set up product</h3>
           <button type="button" className="neu-btn px-3 py-1.5 text-sm accent-text" onClick={startCreate}>
-            + New product
+            + Add
           </button>
         </div>
 
         {!showForm ? (
           <p className="text-sm text-[var(--muted)]">
-            Click <strong>+ New product</strong> to add a product. Use <strong>Edit</strong> or <strong>Stock</strong> on a row to update an existing product.
+            Pick a subcategory to configure pricing, colors, and initial stock per shop. The subcategory name becomes the product name.
           </p>
         ) : (
           <div className="space-y-3 text-sm">
-            <p className="text-xs font-medium text-[var(--muted)]">New product</p>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Product name"
-              className="neu-inset w-full px-3 py-2 text-sm"
-            />
+            <p className="text-xs font-medium text-[var(--muted)]">Subcategory = product</p>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
               className="neu-inset w-full px-3 py-2 text-sm"
             >
-              <option value="">Select category</option>
-              {categoryOptions.map((c) => (
+              <option value="">Select subcategory</option>
+              {unprovisioned.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.parent_name ? `${c.parent_name} › ${c.name}` : c.name}
                 </option>
               ))}
             </select>
+            {selectedCategory && (
+              <p className="rounded-lg bg-[var(--shadow-dark)]/10 px-3 py-2 text-xs">
+                Product name: <strong>{selectedCategory.name}</strong>
+              </p>
+            )}
             <input
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
-              placeholder="Brand"
+              placeholder="Brand (optional)"
               className="neu-inset w-full px-3 py-2 text-sm"
             />
             <input
@@ -309,7 +328,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant }: Props
             />
             <div className="flex gap-2">
               <button type="button" onClick={save} className="neu-btn flex-1 py-2 accent-text">
-                Create product
+                Set up product
               </button>
               <button type="button" onClick={closeForm} className="neu-btn px-3 py-2 text-sm">
                 Cancel

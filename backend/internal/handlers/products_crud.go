@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/cresdynamics-lang/pos-prince/backend/internal/catalog"
 	"github.com/gin-gonic/gin"
@@ -16,37 +18,57 @@ type productRecord struct {
 	Brand        *string  `json:"brand,omitempty"`
 	CategoryID   string   `json:"category_id"`
 	CategoryName string   `json:"category_name"`
+	ParentName   string   `json:"parent_name,omitempty"`
 	CategorySlug string   `json:"category_slug"`
 	BasePrice    float64  `json:"base_price"`
 	CostPrice    float64  `json:"cost_price"`
 	IsActive     bool     `json:"is_active"`
 	VariantCount int      `json:"variant_count"`
+	Provisioned  bool     `json:"provisioned"`
 }
 
 func (h *Handler) ListProducts(c *gin.Context) {
 	categoryFilter := c.Query("category_id")
+	parentFilter := c.Query("parent_id")
 	activeOnly := c.Query("active") != "false"
 
+	// List every sellable leaf category (subcategory = product). Parent categories with
+	// children are navigational only; a leaf is either a subcategory or a root with no children.
 	query := `
-		SELECT p.id::text, p.name, p.brand, p.category_id::text,
-		       COALESCE(parent.name, cat.name), cat.slug,
-		       p.base_price, p.cost_price, p.is_active,
-		       COUNT(pv.id)::int
-		FROM products p
-		JOIN categories cat ON cat.id = p.category_id
+		SELECT COALESCE(p.id::text, ''),
+		       COALESCE(p.name, cat.name),
+		       p.brand,
+		       cat.id::text,
+		       COALESCE(parent.name, cat.name),
+		       COALESCE(parent.name, ''),
+		       cat.slug,
+		       COALESCE(p.base_price, 0),
+		       COALESCE(p.cost_price, 0),
+		       COALESCE(p.is_active, FALSE),
+		       COALESCE(COUNT(pv.id), 0)::int,
+		       (p.id IS NOT NULL)
+		FROM categories cat
 		LEFT JOIN categories parent ON parent.id = cat.parent_id
+		LEFT JOIN products p ON p.category_id = cat.id
 		LEFT JOIN product_variants pv ON pv.product_id = p.id
-		WHERE 1=1
+		WHERE NOT EXISTS (SELECT 1 FROM categories ch WHERE ch.parent_id = cat.id)
 	`
 	args := []interface{}{}
+	n := 1
 	if categoryFilter != "" {
-		query += ` AND p.category_id = $1`
+		query += fmt.Sprintf(` AND cat.id = $%d`, n)
 		args = append(args, categoryFilter)
+		n++
+	}
+	if parentFilter != "" {
+		query += fmt.Sprintf(` AND (parent.id = $%d OR cat.id = $%d)`, n, n)
+		args = append(args, parentFilter)
+		n++
 	}
 	if activeOnly {
-		query += ` AND p.is_active = TRUE`
+		query += ` AND (p.id IS NULL OR p.is_active = TRUE)`
 	}
-	query += ` GROUP BY p.id, cat.id, parent.id ORDER BY p.name`
+	query += ` GROUP BY cat.id, parent.id, p.id ORDER BY COALESCE(parent.name, cat.name), cat.name`
 
 	rows, err := h.DB.Query(c.Request.Context(), query, args...)
 	if err != nil {
@@ -58,8 +80,8 @@ func (h *Handler) ListProducts(c *gin.Context) {
 	out := []productRecord{}
 	for rows.Next() {
 		var p productRecord
-		if rows.Scan(&p.ID, &p.Name, &p.Brand, &p.CategoryID, &p.CategoryName, &p.CategorySlug,
-			&p.BasePrice, &p.CostPrice, &p.IsActive, &p.VariantCount) == nil {
+		if rows.Scan(&p.ID, &p.Name, &p.Brand, &p.CategoryID, &p.CategoryName, &p.ParentName, &p.CategorySlug,
+			&p.BasePrice, &p.CostPrice, &p.IsActive, &p.VariantCount, &p.Provisioned) == nil {
 			out = append(out, p)
 		}
 	}
@@ -67,13 +89,13 @@ func (h *Handler) ListProducts(c *gin.Context) {
 }
 
 type createProductRequest struct {
-	Name                  string   `json:"name" binding:"required"`
-	CategoryID            string   `json:"category_id" binding:"required"`
-	Brand                 string   `json:"brand"`
-	BasePrice             float64  `json:"base_price"`
-	CostPrice             float64  `json:"cost_price"`
-	Colors                []string `json:"colors"`
-	InitialStockPerStore  int      `json:"initial_stock_per_store"`
+	Name                 string   `json:"name"`
+	CategoryID           string   `json:"category_id" binding:"required"`
+	Brand                string   `json:"brand"`
+	BasePrice            float64  `json:"base_price"`
+	CostPrice            float64  `json:"cost_price"`
+	Colors               []string `json:"colors"`
+	InitialStockPerStore int      `json:"initial_stock_per_store"`
 }
 
 func (h *Handler) CreateProduct(c *gin.Context) {
@@ -89,10 +111,30 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		return
 	}
 
-	var catSlug string
-	if err := h.DB.QueryRow(c.Request.Context(), `SELECT slug FROM categories WHERE id = $1`, catID).Scan(&catSlug); err != nil {
+	var catSlug, catName string
+	var childCount, existingProducts int
+	err = h.DB.QueryRow(c.Request.Context(), `
+		SELECT cat.slug, cat.name,
+		       (SELECT COUNT(*) FROM categories ch WHERE ch.parent_id = cat.id),
+		       (SELECT COUNT(*) FROM products p WHERE p.category_id = cat.id)
+		FROM categories cat WHERE cat.id = $1
+	`, catID).Scan(&catSlug, &catName, &childCount, &existingProducts)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "category not found"})
 		return
+	}
+	if childCount > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "choose a subcategory — parent categories are not sellable products"})
+		return
+	}
+	if existingProducts > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "this subcategory already has a product — update stock or pricing instead"})
+		return
+	}
+
+	productName := strings.TrimSpace(req.Name)
+	if productName == "" {
+		productName = catName
 	}
 
 	colors := req.Colors
@@ -113,13 +155,13 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		INSERT INTO products (category_id, name, brand, base_price, cost_price)
 		VALUES ($1, $2, NULLIF($3, ''), $4, $5)
 		RETURNING id
-	`, catID, req.Name, req.Brand, req.BasePrice, req.CostPrice).Scan(&productID)
+	`, catID, productName, req.Brand, req.BasePrice, req.CostPrice).Scan(&productID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "create product failed"})
 		return
 	}
 
-	baseSlug := slugify(req.Name)
+	baseSlug := catSlug
 	variantCount, err := createProductVariants(ctx, tx, productID, baseSlug, catSlug, colors)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

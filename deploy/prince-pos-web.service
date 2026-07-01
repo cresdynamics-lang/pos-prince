@@ -1,0 +1,18 @@
+[Unit]
+Description=Prince Esquire POS Web
+After=network-online.target prince-pos-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=prince
+Group=prince
+WorkingDirectory=/opt/pos-prince/frontend
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/npm run start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

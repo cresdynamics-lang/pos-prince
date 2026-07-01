@@ -32,12 +32,12 @@ func EnsureDemoCatalog(ctx context.Context, pool *pgxpool.Pool) {
 	ensureDemoStaff(ctx, pool)
 
 	products := []demoProduct{
-		{"Clarks Loafer", "clarks-loafer", "loafers", "Clarks", 32500, 18000, []string{"Black", "Brown"}, "shoe"},
-		{"Presidential Shirt", "presidential-shirt", "presidential", "Prince Esquire", 8500, 4200, []string{"White", "Blue"}, "apparel"},
-		{"Merino Sweater", "merino-sweater", "sweaters", "Prince Esquire", 12000, 5500, []string{"Navy", "Grey"}, "apparel"},
-		{"Knitted Polo", "knitted-polo", "knitted-polos", "Prince Esquire", 6500, 3200, []string{"Black", "White"}, "apparel"},
-		{"Silk Tie", "silk-tie", "belts-ties", "Prince Esquire", 3500, 1200, []string{"Burgundy", "Navy"}, "none"},
-		{"Prince Logo Cap", "prince-logo-cap", "caps-hats", "Prince Esquire", 2500, 900, []string{"Navy", "Black"}, "cap"},
+		{"Loafers", "loafers", "loafers", "Prince Esquire", 32500, 18000, []string{"Black", "Brown"}, "shoe"},
+		{"Presidential", "presidential", "presidential", "Prince Esquire", 8500, 4200, []string{"White", "Blue"}, "apparel"},
+		{"Sweaters", "sweaters", "sweaters", "Prince Esquire", 12000, 5500, []string{"Navy", "Grey"}, "apparel"},
+		{"Knitted Polos", "knitted-polos", "knitted-polos", "Prince Esquire", 6500, 3200, []string{"Black", "White"}, "apparel"},
+		{"Ties", "ties", "ties", "Prince Esquire", 3500, 1200, []string{"Burgundy", "Navy"}, "none"},
+		{"Caps & Hats", "caps-hats", "caps-hats", "Prince Esquire", 2500, 900, []string{"Navy", "Black"}, "cap"},
 	}
 
 	shopIDs := map[string]uuid.UUID{}
@@ -145,10 +145,10 @@ func EnsureDemoCatalog(ctx context.Context, pool *pgxpool.Pool) {
 	}
 
 	// Sample sales across shops and cashiers
-	recordDemoSale(ctx, pool, shopIDs["westlands"], cashierIDs["james@prince-esquire.co.ke"], "clarks-loafer-42-Black", 1, 32500, "mpesa")
-	recordDemoSale(ctx, pool, shopIDs["cbd"], cashierIDs["mary@prince-esquire.co.ke"], "presidential-shirt-L-White", 2, 7500, "cash")
-	recordDemoSale(ctx, pool, shopIDs["westlands"], cashierIDs["charles@prince-esquire.co.ke"], "merino-sweater-L-Navy", 1, 12000, "mpesa")
-	recordDemoSale(ctx, pool, shopIDs["cbd"], cashierIDs["mary@prince-esquire.co.ke"], "silk-tie-Burgundy", 1, 3500, "cash")
+	recordDemoSale(ctx, pool, shopIDs["westlands"], cashierIDs["james@prince-esquire.co.ke"], "loafers-42-Black", 1, 32500, "mpesa")
+	recordDemoSale(ctx, pool, shopIDs["cbd"], cashierIDs["mary@prince-esquire.co.ke"], "presidential-L-White", 2, 7500, "cash")
+	recordDemoSale(ctx, pool, shopIDs["westlands"], cashierIDs["charles@prince-esquire.co.ke"], "sweaters-L-Navy", 1, 12000, "mpesa")
+	recordDemoSale(ctx, pool, shopIDs["cbd"], cashierIDs["mary@prince-esquire.co.ke"], "ties-Burgundy", 1, 3500, "cash")
 
 	pool.Exec(ctx, `
 		INSERT INTO inventory (product_variant_id, shop_id, quantity)

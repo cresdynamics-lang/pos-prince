@@ -102,6 +102,12 @@ CROSS JOIN (VALUES
 ) AS v(name, slug)
 WHERE c.slug = 't-shirts';
 
+-- Belts & Ties (subcategory = product)
+INSERT INTO categories (name, slug, parent_id, variant_types)
+SELECT 'Belts', 'belts', id, '["size","color"]' FROM categories WHERE slug = 'belts-ties';
+INSERT INTO categories (name, slug, parent_id, variant_types)
+SELECT 'Ties', 'ties', id, '["color"]' FROM categories WHERE slug = 'belts-ties';
+
 -- Demo shop (update when client confirms locations)
 INSERT INTO shops (name, location, phone) VALUES
 ('Prince Esquire — Main', 'Nairobi', '0724-494089');

@@ -134,6 +134,12 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 		return
 	}
 
+	if req.Name != nil && strings.TrimSpace(*req.Name) != "" {
+		_, _ = h.DB.Exec(c.Request.Context(), `
+			UPDATE products SET name = $1, updated_at = NOW() WHERE category_id = $2
+		`, strings.TrimSpace(*req.Name), catID)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"updated": true})
 }
 

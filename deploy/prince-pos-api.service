@@ -1,0 +1,17 @@
+[Unit]
+Description=Prince Esquire POS API
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=prince
+Group=prince
+WorkingDirectory=/opt/pos-prince/backend
+EnvironmentFile=/opt/pos-prince/backend/.env
+ExecStart=/opt/pos-prince/backend/bin/server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

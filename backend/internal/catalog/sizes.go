@@ -16,8 +16,10 @@ func SizeProfile(categorySlug string) []string {
 		return ShoeSizes
 	case "caps-hats":
 		return CapSizes
-	case "belts-ties":
-		return nil // no sizes
+	case "belts":
+		return []string{"32", "34", "36", "38", "40", "42"}
+	case "ties", "belts-ties":
+		return nil
 	default:
 		return ApparelSizes
 	}

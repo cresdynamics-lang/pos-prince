@@ -206,3 +206,12 @@ export function CategoryCrudPanel({ categories, onChanged }: Props) {
 export function useCategoryOptions(categories: Category[]) {
   return useMemo(() => flattenCategories(categories), [categories]);
 }
+
+/** Leaf categories only — subcategory = sellable product. */
+export function useSellableCategoryOptions(categories: Category[]) {
+  const flat = useCategoryOptions(categories);
+  return useMemo(() => {
+    const parentIds = new Set(flat.filter((c) => c.parent_id).map((c) => c.parent_id!));
+    return flat.filter((c) => !parentIds.has(c.id));
+  }, [flat]);
+}
