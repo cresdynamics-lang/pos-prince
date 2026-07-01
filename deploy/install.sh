@@ -4,7 +4,8 @@ set -euo pipefail
 
 APP_SRC="${APP_SRC:-/home/prince/pos-prince}"
 APP_DIR="/opt/pos-prince"
-DOMAIN_WEB="pos.prince-esquire.co.ke"
+DOMAIN_WEB="p-o-s.prince-esquire.co.ke"
+DOMAIN_ALIASES="pos.prince-esquire.co.ke"
 SERVER_IP="${SERVER_IP:-137.184.63.96}"
 # Optional separate API subdomain — leave unset to serve /api on the web domain only
 DOMAIN_API="${DOMAIN_API:-}"
@@ -111,7 +112,7 @@ PORT=8080
 DATABASE_URL=${DB_URL}
 REDIS_URL=redis://127.0.0.1:6380
 JWT_SECRET=${JWT_SECRET}
-CORS_ORIGINS=https://${DOMAIN_WEB},http://${SERVER_IP}
+CORS_ORIGINS=https://${DOMAIN_WEB},https://${DOMAIN_ALIASES},http://${SERVER_IP}
 BOOTSTRAP_ADMIN_EMAIL=charles@prince-esquire.co.ke
 BOOTSTRAP_ADMIN_PASSWORD=C.Mutunga
 BOOTSTRAP_ADMIN_NAME=Charles Mutunga
@@ -163,9 +164,9 @@ systemctl reload nginx
 
 log "Issuing SSL certificates..."
 if [[ -n "${DOMAIN_API}" ]]; then
-  certbot --nginx -d "${DOMAIN_WEB}" -d "${DOMAIN_API}" --non-interactive --agree-tos -m prince-esquire@gmail.com --redirect || true
+  certbot --nginx -d "${DOMAIN_WEB}" -d "${DOMAIN_ALIASES}" -d "${DOMAIN_API}" --non-interactive --agree-tos -m prince-esquire@gmail.com --redirect || true
 else
-  certbot --nginx -d "${DOMAIN_WEB}" --non-interactive --agree-tos -m prince-esquire@gmail.com --redirect || true
+  certbot --nginx -d "${DOMAIN_WEB}" -d "${DOMAIN_ALIASES}" --non-interactive --agree-tos -m prince-esquire@gmail.com --redirect || true
 fi
 
 log "Done."

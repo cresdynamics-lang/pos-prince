@@ -5,7 +5,8 @@ set -euo pipefail
 
 APP_SRC="${APP_SRC:-/home/prince/pos-prince}"
 APP_DIR="/opt/pos-prince"
-DOMAIN_WEB="pos.prince-esquire.co.ke"
+DOMAIN_WEB="p-o-s.prince-esquire.co.ke"
+DOMAIN_ALIASES="pos.prince-esquire.co.ke"
 SERVER_IP="${SERVER_IP:-137.184.63.96}"
 DOMAIN_API="${DOMAIN_API:-}"
 
@@ -47,7 +48,7 @@ chown -R prince:prince "${APP_DIR}"
 # Ensure CORS allows domain + IP access
 if [[ -f "${APP_DIR}/backend/.env" ]]; then
   if ! grep -q "CORS_ORIGINS=.*${SERVER_IP}" "${APP_DIR}/backend/.env"; then
-    sed -i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=https://${DOMAIN_WEB},http://${SERVER_IP}|" "${APP_DIR}/backend/.env" || true
+    sed -i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=https://${DOMAIN_WEB},https://${DOMAIN_ALIASES},http://${SERVER_IP}|" "${APP_DIR}/backend/.env" || true
   fi
 fi
 
