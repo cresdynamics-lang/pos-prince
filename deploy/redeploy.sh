@@ -56,9 +56,7 @@ log "Ensuring Postgres + Redis are up..."
 docker compose -f "${APP_DIR}/deploy/docker-compose.prod.yml" --env-file "${APP_DIR}/deploy/.env" up -d
 
 if [[ -f "${APP_DIR}/backend/.env" ]]; then
-  # shellcheck disable=SC1091
-  source "${APP_DIR}/backend/.env"
-  DB_URL="${DATABASE_URL:-}"
+  DB_URL=$(grep -E '^DATABASE_URL=' "${APP_DIR}/backend/.env" | cut -d= -f2- | tr -d '"')
   if [[ -n "${DB_URL}" ]]; then
     log "Applying pending migrations..."
     for f in 010_activity_log.sql 011_catalog_prices.sql 012_remove_demo_sales.sql; do
@@ -67,6 +65,8 @@ if [[ -f "${APP_DIR}/backend/.env" ]]; then
     done
     if ! grep -q '^DEMO_SEED=' "${APP_DIR}/backend/.env"; then
       echo "DEMO_SEED=false" >> "${APP_DIR}/backend/.env"
+    else
+      sed -i 's/^DEMO_SEED=.*/DEMO_SEED=false/' "${APP_DIR}/backend/.env"
     fi
   fi
 fi
