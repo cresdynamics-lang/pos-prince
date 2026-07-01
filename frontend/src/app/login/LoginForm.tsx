@@ -39,7 +39,10 @@ export default function LoginForm() {
         <h1 className="text-2xl font-semibold accent-text">{BRAND.name}</h1>
         <p className="text-sm text-[var(--muted)]">Sign in to continue</p>
         <p className="mt-2 text-xs text-[var(--muted)]">
-          Access is restricted to authorized staff only.
+          Access is restricted to authorized staff only.{" "}
+          <a href="/" className="underline underline-offset-2">
+            Back to home
+          </a>
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
