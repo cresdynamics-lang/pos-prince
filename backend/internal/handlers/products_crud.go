@@ -194,6 +194,9 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		"id":            productID.String(),
 		"variant_count": variantCount,
 	})
+	h.logAction(c, nil, "product.create", "product", productID.String(),
+		fmt.Sprintf("Set up %s @ %s (cost %s)", productName, kes(req.BasePrice), kes(req.CostPrice)),
+		map[string]interface{}{"category_id": catID.String(), "base_price": req.BasePrice, "cost_price": req.CostPrice})
 }
 
 func createProductVariants(ctx context.Context, tx pgx.Tx, productID uuid.UUID, baseSlug, catSlug string, colors []string) (int, error) {

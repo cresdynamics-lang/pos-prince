@@ -158,29 +158,9 @@ export function TopProductsBar({ data }: { data: ChartPoint[] }) {
   );
 }
 
-export const DEMO_DASHBOARD: DashboardData = {
-  summary: { sales_today: 47, revenue_today: 284500, profit_today: 98200, orders_today: 47 },
-  revenue_trend: [
-    { label: "Mon", value: 180000 },
-    { label: "Tue", value: 210000 },
-    { label: "Wed", value: 195000 },
-    { label: "Thu", value: 245000 },
-    { label: "Fri", value: 284500 },
-    { label: "Sat", value: 312000 },
-    { label: "Sun", value: 268000 },
-  ],
-  sales_by_category: [
-    { label: "Shoes", value: 98500 },
-    { label: "Suits", value: 72000 },
-    { label: "Shirts", value: 45800 },
-    { label: "Trousers", value: 38200 },
-    { label: "Blazers", value: 30000 },
-  ],
-  top_products: [
-    { label: "Clarks Loafer", value: 12 },
-    { label: "Presidential Shirt", value: 9 },
-    { label: "Two Piece Suit", value: 7 },
-    { label: "Formal Trouser", value: 6 },
-    { label: "Knitted Polo", value: 5 },
-  ],
+export const EMPTY_DASHBOARD: DashboardData = {
+  summary: { sales_today: 0, revenue_today: 0, profit_today: 0, orders_today: 0 },
+  revenue_trend: [],
+  sales_by_category: [],
+  top_products: [],
 };

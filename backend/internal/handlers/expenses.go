@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -126,6 +127,9 @@ func (h *Handler) CreateExpense(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"id": id})
+	h.logAction(c, shopID, "expense.create", "expense", id,
+		fmt.Sprintf("Expense %s: %s (%s)", cat, kes(req.Amount), expenseDate),
+		map[string]interface{}{"category": cat, "amount": req.Amount})
 }
 
 func (h *Handler) DeleteExpense(c *gin.Context) {

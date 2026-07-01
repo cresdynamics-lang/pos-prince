@@ -136,6 +136,7 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", permission: PERMS.dashboard, icon: "◫" },
   { href: "/admin/analytics", label: "Analytics", permission: PERMS.analytics, icon: "◔" },
+  { href: "/admin/activity", label: "Activity", permission: PERMS.analytics, icon: "◷" },
   { href: "/admin/sales", label: "Sales", permission: PERMS.sales, icon: "◎" },
   { href: "/admin/revenue", label: "Revenue", permission: PERMS.revenue, icon: "◈" },
   { href: "/admin/finance", label: "Finance", permission: PERMS.finance, icon: "₣" },

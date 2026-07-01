@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -194,4 +195,7 @@ func (h *Handler) CreateSale(c *gin.Context) {
 		"discount_amount": discountTotal,
 		"net_revenue": req.SalePrice * float64(req.Quantity),
 	})
+	h.logAction(c, &shopID, "sale.create", "sale", saleID,
+		fmt.Sprintf("Sale %s × %d @ %s (%s)", kes(req.SalePrice), req.Quantity, kes(netTotal), req.PaymentMethod),
+		map[string]interface{}{"quantity": req.Quantity, "sale_price": req.SalePrice, "net_total": netTotal})
 }

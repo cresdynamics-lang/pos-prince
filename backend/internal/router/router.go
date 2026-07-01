@@ -54,6 +54,7 @@ func New(pool *pgxpool.Pool, cfg config.Config) *gin.Engine {
 
 			protected.GET("/analytics/dashboard", middleware.RequirePermission(auth.PermDashboard), h.DashboardAnalytics)
 			protected.GET("/analytics/revenue", middleware.RequirePermission(auth.PermRevenue), h.RevenueAnalytics)
+			protected.GET("/activity", middleware.RequirePermission(auth.PermAnalytics), h.ListActivity)
 			protected.GET("/finance/overview", middleware.RequirePermission(auth.PermFinance), h.FinanceOverview)
 
 			protected.GET("/expenses", middleware.RequireAnyPermission(auth.PermFinance, auth.PermRevenue, auth.PermSales), h.ListExpenses)

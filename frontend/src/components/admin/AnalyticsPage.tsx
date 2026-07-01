@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   CategoryPieChart,
-  DEMO_DASHBOARD,
+  EMPTY_DASHBOARD,
   RevenueLineChart,
   SummaryCards,
   TopProductsBar,
@@ -29,7 +29,7 @@ type AnalyticsResponse = DashboardData & { by_store?: StoreToday[] };
 export function AnalyticsPageClient() {
   const { isAllStores } = useStore();
   const apiPath = useStoreApiPath("/analytics/dashboard");
-  const [data, setData] = useState<AnalyticsResponse>(DEMO_DASHBOARD);
+  const [data, setData] = useState<AnalyticsResponse>(EMPTY_DASHBOARD);
   const staffView = isStaffUser(getUser());
 
   const load = useCallback(() => {

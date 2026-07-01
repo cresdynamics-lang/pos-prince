@@ -67,9 +67,9 @@ func provisionLeafProduct(ctx context.Context, pool *pgxpool.Pool, leaf leafCate
 	var productID uuid.UUID
 	err = tx.QueryRow(ctx, `
 		INSERT INTO products (category_id, name, brand, base_price, cost_price)
-		VALUES ($1, $2, 'Prince Esquire', 0, 0)
+		VALUES ($1, $2, 'Prince Esquire', $3, $4)
 		RETURNING id
-	`, leaf.ID, leaf.Name).Scan(&productID)
+	`, leaf.ID, leaf.Name, catalog.ListPrice(leaf.Slug), catalog.CostPrice(leaf.Slug)).Scan(&productID)
 	if err != nil {
 		return err
 	}

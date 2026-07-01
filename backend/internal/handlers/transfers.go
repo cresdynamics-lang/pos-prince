@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -162,6 +163,9 @@ func (h *Handler) CreateTransfer(c *gin.Context) {
 		"source_closing": newSrc,
 		"destination_closing": newDst,
 	})
+	h.logAction(c, &srcID, "transfer.create", "transfer", transferID,
+		fmt.Sprintf("Moved %d units between stores", req.Quantity),
+		map[string]interface{}{"quantity": req.Quantity, "source": req.SourceShopID, "destination": req.DestinationShopID})
 }
 
 // SyncStoreCatalog ensures every variant has an inventory row in every active store.

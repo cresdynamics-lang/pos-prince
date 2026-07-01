@@ -144,6 +144,9 @@ func (h *Handler) AddStock(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"quantity": qty, "added": req.Quantity})
+	h.logAction(c, &shopID, "inventory.add", "variant", variantID.String(),
+		fmt.Sprintf("Added %d units (now %d in store)", req.Quantity, qty),
+		map[string]interface{}{"added": req.Quantity, "quantity": qty})
 }
 
 func (h *Handler) ListProductVariants(c *gin.Context) {

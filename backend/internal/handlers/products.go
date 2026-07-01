@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -127,5 +128,15 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "update failed"})
 		return
 	}
+	summary := "Product updated"
+	meta := map[string]interface{}{}
+	if req.BasePrice != nil {
+		summary = fmt.Sprintf("Product price set to %s", kes(*req.BasePrice))
+		meta["base_price"] = *req.BasePrice
+	}
+	if req.CostPrice != nil {
+		meta["cost_price"] = *req.CostPrice
+	}
+	h.logAction(c, nil, "product.update", "product", productID, summary, meta)
 	c.JSON(http.StatusOK, gin.H{"updated": true})
 }

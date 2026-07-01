@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/cresdynamics-lang/pos-prince/backend/internal/config"
 	"github.com/cresdynamics-lang/pos-prince/backend/internal/db"
@@ -31,7 +32,9 @@ func main() {
 		name = "Charles Mutunga"
 	}
 	db.EnsureBootstrapUser(context.Background(), pool, email, pass, name)
-	db.EnsureDemoCatalog(context.Background(), pool)
+	if demoSeedEnabled() {
+		db.EnsureDemoCatalog(context.Background(), pool)
+	}
 	db.EnsureLeafCategoryProducts(context.Background(), pool)
 
 	r := router.New(pool, cfg)
@@ -40,4 +43,9 @@ func main() {
 	if err := r.Run(addr); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func demoSeedEnabled() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("DEMO_SEED")))
+	return v == "1" || v == "true" || v == "yes"
 }

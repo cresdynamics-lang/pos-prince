@@ -100,7 +100,10 @@ for f in \
   006_checkout.sql \
   007_expenses.sql \
   008_daily_notes.sql \
-  009_subcategory_products.sql
+  009_subcategory_products.sql \
+  010_activity_log.sql \
+  011_catalog_prices.sql \
+  012_remove_demo_sales.sql
 do
   log "  -> ${f}"
   psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${APP_DIR}/backend/migrations/${f}"
@@ -116,6 +119,7 @@ CORS_ORIGINS=https://${DOMAIN_WEB},https://${DOMAIN_ALIASES},http://${SERVER_IP}
 BOOTSTRAP_ADMIN_EMAIL=charles@prince-esquire.co.ke
 BOOTSTRAP_ADMIN_PASSWORD=C.Mutunga
 BOOTSTRAP_ADMIN_NAME=Charles Mutunga
+DEMO_SEED=false
 EOF
 chown prince:prince "${APP_DIR}/backend/.env"
 chmod 600 "${APP_DIR}/backend/.env"

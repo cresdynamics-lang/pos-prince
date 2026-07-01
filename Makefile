@@ -12,6 +12,9 @@ migrate:
 	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/007_expenses.sql
 	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/008_daily_notes.sql
 	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/009_subcategory_products.sql
+	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/010_activity_log.sql
+	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/011_catalog_prices.sql
+	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/012_remove_demo_sales.sql
 
 dev-api:
 	cd backend && go run ./cmd/server

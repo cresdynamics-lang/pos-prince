@@ -55,6 +55,22 @@ fi
 log "Ensuring Postgres + Redis are up..."
 docker compose -f "${APP_DIR}/deploy/docker-compose.prod.yml" --env-file "${APP_DIR}/deploy/.env" up -d
 
+if [[ -f "${APP_DIR}/backend/.env" ]]; then
+  # shellcheck disable=SC1091
+  source "${APP_DIR}/backend/.env"
+  DB_URL="${DATABASE_URL:-}"
+  if [[ -n "${DB_URL}" ]]; then
+    log "Applying pending migrations..."
+    for f in 010_activity_log.sql 011_catalog_prices.sql 012_remove_demo_sales.sql; do
+      psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${APP_DIR}/backend/migrations/${f}" 2>/dev/null || \
+        psql "${DB_URL}" -f "${APP_DIR}/backend/migrations/${f}" || true
+    done
+    if ! grep -q '^DEMO_SEED=' "${APP_DIR}/backend/.env"; then
+      echo "DEMO_SEED=false" >> "${APP_DIR}/backend/.env"
+    fi
+  fi
+fi
+
 log "Building API..."
 cd "${APP_DIR}/backend"
 docker build -t prince-pos-api-build .

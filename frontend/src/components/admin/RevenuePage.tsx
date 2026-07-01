@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { RevenueLineChart, DEMO_DASHBOARD, SummaryCards, type DashboardData } from "@/components/DashboardCharts";
+import { RevenueLineChart, EMPTY_DASHBOARD, SummaryCards, type DashboardData } from "@/components/DashboardCharts";
 import { DailyNotesPanel } from "@/components/admin/DailyNotesPanel";
 import { ExpenseSidePanel } from "@/components/admin/ExpenseSidePanel";
 import { GrandTotalByStore } from "@/components/admin/GrandTotalByStore";
@@ -52,7 +52,7 @@ export function RevenuePageClient() {
   const { isAllStores, selectedStore } = useStore();
   const apiPath = useStoreApiPath("/analytics/revenue");
   const [data, setData] = useState<RevenueData>({
-    ...DEMO_DASHBOARD,
+    ...EMPTY_DASHBOARD,
     monthly_total: 0,
     monthly_discount: 0,
     by_store: [],

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -49,18 +48,8 @@ func shopIDFromQuery(c *gin.Context) string {
 
 func (h *Handler) DashboardAnalytics(c *gin.Context) {
 	shopID := shopIDFromQuery(c)
-	summary, err := h.queryTodaySummary(c.Request.Context(), shopID)
-	if err != nil || (summary.RevenueToday == 0 && shopID == "") {
-		if shopID == "" {
-			summary = demoSummary()
-		}
-	}
-
+	summary, _ := h.queryTodaySummary(c.Request.Context(), shopID)
 	line, pie, movers := h.queryCharts(c.Request.Context(), shopID)
-	if len(line) == 0 && shopID == "" {
-		line, pie, movers = demoCharts()
-	}
-
 	byStore := h.queryStoreTodayStats(c.Request.Context())
 
 	c.JSON(http.StatusOK, gin.H{
@@ -216,53 +205,41 @@ func (h *Handler) queryStoreTodayStats(ctx context.Context) []storeTodayStats {
 	return out
 }
 
-func demoSummary() analyticsSummary {
-	return analyticsSummary{
-		SalesToday: 47, RevenueToday: 284500, GrossRevenueToday: 312000,
-		DiscountToday: 27500, ProfitToday: 98200, OrdersToday: 47,
+func (h *Handler) monthProfitQuery(shopID string) string {
+	shopClause := ""
+	if shopID != "" {
+		shopClause = " AND st.shop_id = $1"
 	}
-}
-
-func demoCharts() ([]chartPoint, []chartPoint, []chartPoint) {
-	days := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
-	vals := []float64{180000, 210000, 195000, 245000, 284500, 312000, 268000}
-	line := make([]chartPoint, 7)
-	for i := range days {
-		line[i] = chartPoint{Label: days[i], Value: vals[i]}
-	}
-	pie := []chartPoint{
-		{Label: "Shoes", Value: 98500},
-		{Label: "Suits", Value: 72000},
-		{Label: "Shirts", Value: 45800},
-		{Label: "Trousers", Value: 38200},
-		{Label: "Blazers", Value: 30000},
-	}
-	movers := []chartPoint{
-		{Label: "Clarks Loafer — Brown", Value: 12},
-		{Label: "Presidential Shirt — White", Value: 9},
-		{Label: "Two Piece Suit — Navy", Value: 7},
-		{Label: "Formal Trouser — Grey", Value: 6},
-		{Label: "Knitted Polo — Black", Value: 5},
-	}
-	_ = time.Now()
-	return line, pie, movers
+	return fmt.Sprintf(`
+		SELECT COALESCE(SUM((st.sale_price - COALESCE(p.cost_price, 0)) * st.quantity), 0)
+		FROM sales_transactions st
+		JOIN product_variants pv ON pv.id = st.product_variant_id
+		JOIN products p ON p.id = pv.product_id
+		WHERE st.transaction_time >= date_trunc('month', CURRENT_DATE)%s
+	`, shopClause)
 }
 
 func (h *Handler) RevenueAnalytics(c *gin.Context) {
 	shopID := shopIDFromQuery(c)
 	summary, _ := h.queryTodaySummary(c.Request.Context(), shopID)
-	if summary.RevenueToday == 0 && shopID == "" {
-		summary = demoSummary()
-	}
 	line, _, _ := h.queryCharts(c.Request.Context(), shopID)
-	if len(line) == 0 && shopID == "" {
-		line, _, _ = demoCharts()
-	}
-
 	byStore := h.queryByStoreMonth(c.Request.Context(), shopID)
-
 	monthlyNet, monthlyDiscount := h.queryMonthlyRevenue(c.Request.Context(), shopID)
 	finance := h.queryFinanceSnapshot(c.Request.Context(), shopID)
+
+	marginPct := 0.0
+	if summary.GrossRevenueToday > 0 {
+		marginPct = (summary.ProfitToday / summary.GrossRevenueToday) * 100
+	} else if monthlyNet > 0 {
+		var monthProfit float64
+		q := h.monthProfitQuery(shopID)
+		if shopID != "" {
+			_ = h.DB.QueryRow(c.Request.Context(), q, shopID).Scan(&monthProfit)
+		} else {
+			_ = h.DB.QueryRow(c.Request.Context(), q).Scan(&monthProfit)
+		}
+		marginPct = (monthProfit / monthlyNet) * 100
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"summary":              summary,
@@ -271,7 +248,7 @@ func (h *Handler) RevenueAnalytics(c *gin.Context) {
 		"by_store_today":       h.queryStoreTodayStats(c.Request.Context()),
 		"monthly_total":        monthlyNet,
 		"monthly_discount":     monthlyDiscount,
-		"margin_pct":           34.5,
+		"margin_pct":           marginPct,
 		"expenses_today":       finance.ExpensesToday,
 		"expenses_month":       finance.ExpensesMonth,
 		"net_today":            finance.NetToday,
