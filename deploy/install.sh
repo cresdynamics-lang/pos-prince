@@ -33,7 +33,12 @@ rm -rf /var/www/pos-backend
 log "Installing packages..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq docker.io docker-compose-v2 golang-go nginx certbot python3-certbot-nginx postgresql-client curl
+apt-get install -y -qq docker.io docker-compose-v2 nginx certbot python3-certbot-nginx postgresql-client curl ca-certificates gnupg
+
+if ! command -v node >/dev/null || ! node -v | grep -qE 'v(20|22|24)'; then
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  apt-get install -y -qq nodejs
+fi
 
 if ! swapon --show | grep -q /swapfile; then
   log "Adding 2G swap for build..."
