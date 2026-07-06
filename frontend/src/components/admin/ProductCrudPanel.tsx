@@ -42,6 +42,9 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
   const [basePrice, setBasePrice] = useState(0);
   const [costPrice, setCostPrice] = useState(0);
   const [colors, setColors] = useState("Black, White");
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
+  const [editListPrice, setEditListPrice] = useState(0);
+  const [editCostPrice, setEditCostPrice] = useState(0);
   const [initialStock, setInitialStock] = useState(0);
 
   const load = useCallback(() => {
@@ -125,6 +128,30 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
     }
   }
 
+  async function savePrice(p: Product) {
+    if (!p.id) return;
+    setMsg("");
+    try {
+      await apiFetch(`/products/${p.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ base_price: editListPrice, cost_price: editCostPrice }),
+      });
+      setEditingPriceId(null);
+      setMsg("Price updated");
+      load();
+      onChanged();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Price update failed");
+    }
+  }
+
+  function startPriceEdit(p: Product) {
+    setEditingPriceId(p.id);
+    setEditListPrice(p.base_price);
+    setEditCostPrice(p.cost_price);
+    setMsg("");
+  }
+
   async function deactivate(p: Product) {
     if (!p.id || !confirm(`Deactivate "${p.name}"?`)) return;
     try {
@@ -204,7 +231,41 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
                     {p.parent_name || p.category_name}
                   </td>
                   <td className="px-4 py-3">
-                    {p.provisioned ? `KES ${p.base_price.toLocaleString()}` : "—"}
+                    {p.provisioned && editingPriceId === p.id && canEdit ? (
+                      <div className="flex flex-wrap items-center gap-1">
+                        <input
+                          type="number"
+                          min={0}
+                          value={editListPrice}
+                          onChange={(e) => setEditListPrice(Number(e.target.value))}
+                          className="neu-inset w-20 px-2 py-1 text-xs"
+                          title="List price"
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          value={editCostPrice}
+                          onChange={(e) => setEditCostPrice(Number(e.target.value))}
+                          className="neu-inset w-20 px-2 py-1 text-xs"
+                          title="Cost"
+                        />
+                        <button type="button" className="neu-btn px-2 py-1 text-xs accent-text" onClick={() => savePrice(p)}>
+                          Save
+                        </button>
+                        <button type="button" className="neu-btn px-2 py-1 text-xs" onClick={() => setEditingPriceId(null)}>
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {p.provisioned ? `KES ${p.base_price.toLocaleString()}` : "—"}
+                        {p.provisioned && canEdit && (
+                          <button type="button" className="ml-2 text-xs accent-text underline" onClick={() => startPriceEdit(p)}>
+                            Edit
+                          </button>
+                        )}
+                      </>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {!p.provisioned ? (

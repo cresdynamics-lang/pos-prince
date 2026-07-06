@@ -10,6 +10,7 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: "Prince Esquire POS",
   description: "Multi-shop point of sale for Prince Esquire",
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({

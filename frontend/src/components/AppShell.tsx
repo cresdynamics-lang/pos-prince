@@ -36,6 +36,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {children}
       <footer className="mt-8 text-center text-xs text-[var(--muted)]">
         {BRAND.phone} · {BRAND.email}
+        <span className="mt-2 block">
+          Install: browser menu → Add to Home Screen for offline POS
+        </span>
       </footer>
     </div>
   );

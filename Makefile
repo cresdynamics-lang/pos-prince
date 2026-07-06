@@ -15,6 +15,7 @@ migrate:
 	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/010_activity_log.sql
 	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/011_catalog_prices.sql
 	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/012_remove_demo_sales.sql
+	psql "postgres://prince:prince_dev@localhost:5432/prince_pos?sslmode=disable" -f backend/migrations/013_client_catalog_prices.sql
 
 dev-api:
 	cd backend && go run ./cmd/server

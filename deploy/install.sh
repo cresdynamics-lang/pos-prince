@@ -103,7 +103,8 @@ for f in \
   009_subcategory_products.sql \
   010_activity_log.sql \
   011_catalog_prices.sql \
-  012_remove_demo_sales.sql
+  012_remove_demo_sales.sql \
+  013_client_catalog_prices.sql
 do
   log "  -> ${f}"
   psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${APP_DIR}/backend/migrations/${f}"

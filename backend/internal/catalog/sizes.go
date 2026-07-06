@@ -14,7 +14,7 @@ func SizeProfile(categorySlug string) []string {
 	switch categorySlug {
 	case "shoes", "formal-shoes", "casual-shoes", "boots", "sandals", "loafers":
 		return ShoeSizes
-	case "caps-hats":
+	case "caps-hats", "caps", "fedora-hats":
 		return CapSizes
 	case "belts":
 		return []string{"32", "34", "36", "38", "40", "42"}
