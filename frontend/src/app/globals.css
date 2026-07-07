@@ -78,3 +78,15 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+.touch-scroll-x {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.touch-scroll-y {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  overflow-x: hidden;
+}

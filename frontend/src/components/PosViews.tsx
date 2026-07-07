@@ -257,24 +257,21 @@ export function PosView({ categories }: { categories: Category[] }) {
   }
 
   return (
-    <AppShell>
-      <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+    <AppShell compact>
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm sm:mb-4 sm:gap-3">
         <span
-          className={`rounded-full px-3 py-1 text-xs ${online ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-900"}`}
+          className={`rounded-full px-2.5 py-0.5 text-[10px] sm:px-3 sm:py-1 sm:text-xs ${online ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-900"}`}
         >
-          {online ? "Online" : "Offline mode"}
+          {online ? "Online" : "Offline"}
         </span>
         {pending > 0 && (
-          <span className="text-xs text-amber-800">{pending} sale(s) waiting to sync</span>
-        )}
-        {!online && (
-          <span className="text-xs text-[var(--muted)]">Catalog &amp; cart work offline; sales sync when connected</span>
+          <span className="text-[10px] text-amber-800 sm:text-xs">{pending} sale(s) to sync</span>
         )}
       </div>
 
       {(msg || syncMsg) && (
         <p
-          className="mb-4 text-sm text-[var(--muted)]"
+          className="mb-2 text-xs text-[var(--muted)] sm:mb-4 sm:text-sm"
           onClick={() => {
             setMsg("");
             clearMsg();
@@ -284,25 +281,25 @@ export function PosView({ categories }: { categories: Category[] }) {
         </p>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <section className="neu-flat p-4">
-          <div className="mb-4 flex flex-wrap items-end gap-3">
-            <div>
-              <label className="mb-1 block text-xs text-[var(--muted)]">Selling store</label>
-              <select
-                value={sellingStore}
-                onChange={(e) => setSellingStore(e.target.value)}
-                className="neu-inset px-3 py-2 text-sm"
-              >
-                {shops.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[1fr_340px] lg:gap-6">
+        <section className="neu-flat min-w-0 p-2.5 sm:p-4">
+          <div className="mb-3">
+            <label className="mb-1 block text-[10px] text-[var(--muted)] sm:text-xs">Selling store</label>
+            <select
+              value={sellingStore}
+              onChange={(e) => setSellingStore(e.target.value)}
+              className="neu-inset w-full px-3 py-2 text-sm sm:max-w-xs"
+            >
+              {shops.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
           </div>
 
-          <p className="mb-3 text-xs uppercase tracking-widest text-[var(--muted)]">Categories</p>
-          <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-2">
+          <p className="mb-1.5 text-[10px] uppercase tracking-widest text-[var(--muted)] sm:text-xs">
+            Categories <span className="normal-case tracking-normal">(swipe →)</span>
+          </p>
+          <div className="touch-scroll-x scrollbar-hide flex gap-1.5 pb-1 sm:gap-2 sm:pb-2">
             {categories.map((cat) => (
               <button
                 key={cat.slug}
@@ -311,7 +308,7 @@ export function PosView({ categories }: { categories: Category[] }) {
                   setParentSlug(cat.slug);
                   setSubSlug(cat.children?.[0]?.slug ?? null);
                 }}
-                className={`neu-btn shrink-0 px-4 py-2 text-sm ${
+                className={`neu-btn shrink-0 whitespace-nowrap px-2.5 py-1.5 text-[11px] sm:px-4 sm:py-2 sm:text-sm ${
                   parentSlug === cat.slug ? "active accent-text" : ""
                 }`}
               >
@@ -321,41 +318,46 @@ export function PosView({ categories }: { categories: Category[] }) {
           </div>
 
           {activeParent && (activeParent.children?.length ?? 0) > 0 && (
-            <div className="scrollbar-hide mt-3 flex gap-2 overflow-x-auto">
-              {activeParent.children!.map((sub) => (
-                <button
-                  key={sub.slug}
-                  type="button"
-                  onClick={() => setSubSlug(sub.slug)}
-                  className={`neu-btn shrink-0 px-3 py-1.5 text-xs ${
-                    subSlug === sub.slug ? "active accent-text" : ""
-                  }`}
-                >
-                  {sub.name}
-                </button>
-              ))}
-            </div>
+            <>
+              <p className="mb-1.5 mt-2.5 text-[10px] uppercase tracking-widest text-[var(--muted)] sm:text-xs">
+                Type <span className="normal-case tracking-normal">(swipe →)</span>
+              </p>
+              <div className="touch-scroll-x scrollbar-hide flex gap-1.5 pb-1 sm:gap-2">
+                {activeParent.children!.map((sub) => (
+                  <button
+                    key={sub.slug}
+                    type="button"
+                    onClick={() => setSubSlug(sub.slug)}
+                    className={`neu-btn shrink-0 whitespace-nowrap px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs ${
+                      subSlug === sub.slug ? "active accent-text" : ""
+                    }`}
+                  >
+                    {sub.name}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
 
-          <div className="mt-6 min-h-[280px]">
+          <div className="mt-4 sm:mt-6">
             {!activeCategory ? (
-              <div className="neu-inset grid min-h-[280px] place-items-center p-8 text-center">
-                <p className="text-sm text-[var(--muted)]">Select a category to start a sale</p>
+              <div className="neu-inset grid min-h-[120px] place-items-center p-6 text-center sm:min-h-[200px] sm:p-8">
+                <p className="text-xs text-[var(--muted)] sm:text-sm">Swipe a category above to start</p>
               </div>
             ) : loading ? (
-              <div className="neu-inset grid min-h-[280px] place-items-center p-8 text-center">
-                <p className="text-sm text-[var(--muted)]">Loading {activeCategory.name}…</p>
+              <div className="neu-inset grid min-h-[120px] place-items-center p-6 text-center sm:min-h-[200px]">
+                <p className="text-xs text-[var(--muted)] sm:text-sm">Loading {activeCategory.name}…</p>
               </div>
             ) : groupedByProduct.size === 0 ? (
-              <div className="neu-inset grid min-h-[280px] place-items-center p-8 text-center">
-                <p className="text-sm text-[var(--muted)]">No variants for {activeCategory.name}</p>
+              <div className="neu-inset grid min-h-[120px] place-items-center p-6 text-center sm:min-h-[200px]">
+                <p className="text-xs text-[var(--muted)] sm:text-sm">No variants for {activeCategory.name}</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {[...groupedByProduct.entries()].map(([productName, items]) => (
                   <div key={productName}>
-                    <p className="mb-2 text-sm font-semibold">{productName}</p>
-                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    <p className="mb-1.5 text-xs font-semibold sm:mb-2 sm:text-sm">{productName}</p>
+                    <div className="touch-scroll-x scrollbar-hide flex gap-2 pb-1 lg:grid lg:grid-cols-2 lg:gap-2 lg:overflow-visible lg:pb-0 xl:grid-cols-3">
                       {items.map((v) => {
                         const storeStock = selectedStoreId
                           ? v.stock
@@ -365,13 +367,13 @@ export function PosView({ categories }: { categories: Category[] }) {
                             key={v.id}
                             type="button"
                             onClick={() => addToCart(v)}
-                            className="neu-btn p-3 text-left text-sm"
+                            className="neu-btn w-[min(42vw,9.5rem)] shrink-0 p-2.5 text-left text-xs sm:w-auto sm:min-w-[8.5rem] sm:p-3 sm:text-sm lg:w-auto lg:shrink"
                           >
-                            <p className="font-medium">{variantLabel(v)}</p>
-                            <p className="mt-1 text-xs accent-text font-semibold">
+                            <p className="line-clamp-2 font-medium leading-tight">{variantLabel(v)}</p>
+                            <p className="mt-1 text-[11px] font-semibold accent-text sm:text-xs">
                               KES {v.price.toLocaleString()}
                             </p>
-                            <p className="text-xs text-[var(--muted)]">Stock: {storeStock ?? 0}</p>
+                            <p className="text-[10px] text-[var(--muted)] sm:text-xs">Stock: {storeStock ?? 0}</p>
                           </button>
                         );
                       })}
@@ -383,9 +385,11 @@ export function PosView({ categories }: { categories: Category[] }) {
           </div>
         </section>
 
-        <aside className="neu-flat flex max-h-[calc(100vh-6rem)] flex-col p-4">
-          <h2 className="mb-4 shrink-0 text-sm font-semibold uppercase tracking-wide accent-text">Current Sale</h2>
-          <div className="neu-inset min-h-[160px] flex-1 space-y-3 overflow-y-auto p-3 text-sm">
+        <aside className="neu-flat flex flex-col p-2.5 sm:p-4">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide accent-text sm:mb-4 sm:text-sm">
+            Current Sale {cart.length > 0 && `(${cart.length})`}
+          </h2>
+          <div className="neu-inset space-y-3 p-2.5 text-xs sm:p-3 sm:text-sm">
             {cart.length === 0 ? (
               <p className="text-[var(--muted)]">Tap a product to add to cart</p>
             ) : (
@@ -472,7 +476,7 @@ export function PosView({ categories }: { categories: Category[] }) {
               })
             )}
           </div>
-          <div className="mt-4 shrink-0 space-y-2 text-sm">
+          <div className="mt-3 space-y-2 text-xs sm:mt-4 sm:text-sm">
             <div className="flex justify-between text-xs">
               <span className="text-[var(--muted)]">Gross</span>
               <span>KES {totals.gross.toLocaleString()}</span>
@@ -513,7 +517,7 @@ export function PosView({ categories }: { categories: Category[] }) {
               type="button"
               disabled={cart.length === 0 || !sellingStore}
               onClick={checkout}
-              className="neu-btn w-full py-3 text-sm font-semibold accent-text disabled:opacity-40"
+              className="neu-btn w-full py-2.5 text-sm font-semibold accent-text disabled:opacity-40 sm:py-3"
             >
               {online ? "Complete Sale" : "Save Offline"}
             </button>
