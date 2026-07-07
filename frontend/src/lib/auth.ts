@@ -28,15 +28,11 @@ const USER_KEY = "prince_pos_user";
 const LAST_ACTIVITY_KEY = "prince_pos_last_activity";
 const SESSION_COOKIE = "prince_pos_session";
 
-const DEFAULT_IDLE_LOCK_MS = 5 * 60 * 1000;
+/** Fixed idle lock — 5 minutes of no activity, then force re-login. */
+export const IDLE_LOCK_MS = 5 * 60 * 1000;
 
 export function getIdleLockMs(): number {
-  const raw = process.env.NEXT_PUBLIC_IDLE_LOCK_MS;
-  if (raw) {
-    const n = Number(raw);
-    if (Number.isFinite(n) && n >= 60_000) return n;
-  }
-  return DEFAULT_IDLE_LOCK_MS;
+  return IDLE_LOCK_MS;
 }
 
 export function recordActivity() {
