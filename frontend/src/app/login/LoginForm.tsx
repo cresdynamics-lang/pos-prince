@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BRAND, getUser, login } from "@/lib/auth";
+import { BRAND, getUser, login, syncSessionCookie } from "@/lib/auth";
 import { InstallPwaBanner } from "@/components/PwaRegister";
 
 export default function LoginForm() {
@@ -14,6 +14,7 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    syncSessionCookie();
     if (getUser()) {
       const next = searchParams.get("next") || "/admin/dashboard";
       router.replace(next.startsWith("/login") ? "/admin/dashboard" : next);
@@ -27,7 +28,8 @@ export default function LoginForm() {
     try {
       await login(email.trim(), password);
       const next = searchParams.get("next") || "/admin/dashboard";
-      router.push(next.startsWith("/login") ? "/admin/dashboard" : next);
+      const dest = next.startsWith("/login") ? "/admin/dashboard" : next;
+      window.location.href = dest;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid email or password");
     } finally {

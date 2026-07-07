@@ -45,12 +45,22 @@ export function getUser(): AuthUser | null {
 
 function setSessionCookie() {
   if (typeof document === "undefined") return;
-  document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=86400; SameSite=Lax`;
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=86400; SameSite=Lax${secure}`;
 }
 
 function clearSessionCookie() {
   if (typeof document === "undefined") return;
-  document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax${secure}`;
+}
+
+/** Restore session cookie when localStorage still has a valid token (e.g. after PWA reload). */
+export function syncSessionCookie() {
+  if (typeof window === "undefined") return;
+  if (getToken() && getUser()) {
+    setSessionCookie();
+  }
 }
 
 export function setSession(token: string, user: AuthUser) {
@@ -81,7 +91,11 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error ?? `Request failed (${res.status})`);
+    const msg = err.error ?? `Request failed (${res.status})`;
+    if (res.status === 400 && path.includes("/auth/login")) {
+      throw new Error("Invalid email or password (password must be at least 6 characters)");
+    }
+    throw new Error(msg === "invalid credentials payload" ? "Invalid email or password" : msg);
   }
   return res.json() as Promise<T>;
 }

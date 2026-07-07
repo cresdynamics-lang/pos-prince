@@ -1,16 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/", "/login", "/manifest.webmanifest", "/pos-sw.js", "/icons"];
-
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = request.cookies.get("prince_pos_session")?.value;
 
-  const isPublic =
-    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/")) ||
-    pathname === "/manifest.webmanifest" ||
-    pathname === "/pos-sw.js";
   const isStatic =
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -24,11 +18,8 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!session && !isPublic) {
-    const login = new URL("/login", request.url);
-    login.searchParams.set("next", pathname);
-    return NextResponse.redirect(login);
-  }
+  // Auth is enforced client-side (JWT in localStorage + RequireAuth). Blocking here
+  // caused login loops when the session cookie was missing on HTTPS.
 
   if (session && pathname === "/login") {
     return NextResponse.redirect(new URL("/admin/dashboard", request.url));

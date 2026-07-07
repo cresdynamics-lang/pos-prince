@@ -25,6 +25,7 @@ export function PwaRegister() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/pos-sw.js", { scope: "/" }).catch(() => {});
+    import("@/lib/auth").then(({ syncSessionCookie }) => syncSessionCookie());
   }, []);
   return null;
 }
