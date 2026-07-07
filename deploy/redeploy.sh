@@ -59,7 +59,7 @@ if [[ -f "${APP_DIR}/backend/.env" ]]; then
   DB_URL=$(grep -E '^DATABASE_URL=' "${APP_DIR}/backend/.env" | cut -d= -f2- | tr -d '"')
   if [[ -n "${DB_URL}" ]]; then
     log "Applying pending migrations..."
-    for f in 010_activity_log.sql 011_catalog_prices.sql 012_remove_demo_sales.sql 013_client_catalog_prices.sql 014_staff_role_permissions.sql 015_belts_caps_no_sizes.sql; do
+    for f in 010_activity_log.sql 011_catalog_prices.sql 012_remove_demo_sales.sql 013_client_catalog_prices.sql 014_staff_role_permissions.sql 015_belts_caps_no_sizes.sql 016_catalog_price_updates.sql; do
       psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${APP_DIR}/backend/migrations/${f}" 2>/dev/null || \
         psql "${DB_URL}" -f "${APP_DIR}/backend/migrations/${f}" || true
     done
