@@ -135,6 +135,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             {!isAllStores && selectedStore && (
               <p className="mt-1 text-sm font-medium accent-text">{selectedStore.name}</p>
             )}
+            {isAllStores && !lockedStore && (
+              <p className="mt-1 text-sm font-medium text-amber-800">All stores — combined totals</p>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-4">

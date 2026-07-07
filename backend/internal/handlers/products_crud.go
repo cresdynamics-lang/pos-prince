@@ -128,6 +128,7 @@ type createProductRequest struct {
 	CostPrice            float64  `json:"cost_price"`
 	Colors               []string `json:"colors"`
 	InitialStockPerStore int      `json:"initial_stock_per_store"`
+	ShopID               string   `json:"shop_id"`
 }
 
 func (h *Handler) CreateProduct(c *gin.Context) {
@@ -207,14 +208,24 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	if initialQty < 0 {
 		initialQty = 0
 	}
+	var targetShopID *uuid.UUID
+	if strings.TrimSpace(req.ShopID) != "" {
+		parsed, err := uuid.Parse(req.ShopID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid shop_id"})
+			return
+		}
+		targetShopID = &parsed
+	}
 	_, err = tx.Exec(ctx, `
 		INSERT INTO inventory (product_variant_id, shop_id, quantity)
 		SELECT pv.id, s.id, $1
 		FROM product_variants pv
 		CROSS JOIN shops s
 		WHERE pv.product_id = $2 AND s.is_active = TRUE
+		  AND ($3::uuid IS NULL OR s.id = $3)
 		ON CONFLICT (product_variant_id, shop_id) DO NOTHING
-	`, initialQty, productID)
+	`, initialQty, productID, targetShopID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "inventory sync failed"})
 		return

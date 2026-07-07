@@ -12,6 +12,7 @@ import {
 import { ExpenseSidePanel } from "@/components/admin/ExpenseSidePanel";
 import { GrandTotalByStore } from "@/components/admin/GrandTotalByStore";
 import { StaffTodaySales, type TodaySaleRow } from "@/components/admin/StaffTodaySales";
+import { StoreScopeBanner } from "@/components/admin/StoreScopeBanner";
 import { apiFetch, getUser, isDirector, isStaffUser } from "@/lib/auth";
 import { useStore, useStoreApiPath } from "@/lib/store-context";
 
@@ -33,7 +34,7 @@ type DashboardResponse = DashboardData & {
 };
 
 export function DashboardPageClient() {
-  const { isAllStores } = useStore();
+  const { isAllStores, selectedStore } = useStore();
   const apiPath = useStoreApiPath("/analytics/dashboard");
   const [data, setData] = useState<DashboardResponse>(EMPTY_DASHBOARD);
   const staffView = isStaffUser(getUser());
@@ -49,6 +50,16 @@ export function DashboardPageClient() {
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
       <div className="min-w-0 space-y-6">
+        <StoreScopeBanner
+          hint={
+            staffView
+              ? "Your personal sales today — no company finances or revenue totals."
+              : isAllStores
+                ? "Combined totals across all stores. Pick a store in the header for one location."
+                : `Figures for ${selectedStore?.name ?? "selected store"} only.`
+          }
+        />
+
         {staffView && (
           <p className="text-sm text-[var(--muted)]">
             Your sales today — products sold and transactions you recorded in POS.

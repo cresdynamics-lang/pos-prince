@@ -38,7 +38,7 @@ type Props = {
   onClose: () => void;
   onUpdated: () => void;
   canEditInventory?: boolean;
-  defaultShopId?: string;
+  lockedStoreId?: string;
 };
 
 export function ProductDetailPanel({
@@ -48,7 +48,7 @@ export function ProductDetailPanel({
   onClose,
   onUpdated,
   canEditInventory = true,
-  defaultShopId = "",
+  lockedStoreId = "",
 }: Props) {
   const tabs = useMemo(
     () =>
@@ -80,29 +80,40 @@ export function ProductDetailPanel({
   const [setQtyStore, setSetQtyStore] = useState("");
   const [setQtyValue, setSetQtyValue] = useState(0);
 
+  const lockedShops = useMemo(
+    () => (lockedStoreId ? shops.filter((s) => s.id === lockedStoreId) : shops),
+    [shops, lockedStoreId],
+  );
+
+  const lockedStoreName = lockedShops[0]?.name ?? "this store";
+
   const load = useCallback(() => {
     if (!variantId) return;
     apiFetch<{ variant: VariantDetail; stores: StoreStock[] }>(`/variants/${variantId}`)
       .then((d) => {
         setVariant(d.variant);
-        setStores(d.stores ?? []);
+        const allStores = d.stores ?? [];
+        const scoped = lockedStoreId
+          ? allStores.filter((s) => s.store_id === lockedStoreId)
+          : allStores;
+        setStores(scoped);
         setName(d.variant.product_name);
         setCategoryId(d.variant.category_id);
         setBasePrice(d.variant.base_price);
         setCostPrice(d.variant.cost_price);
         setBrand(d.variant.brand ?? "");
         setIsActive(d.variant.is_active);
-        if (d.stores?.[0]) {
-          const preferred =
-            defaultShopId && d.stores.find((s) => s.store_id === defaultShopId)?.store_id;
-          const first = preferred ?? d.stores[0].store_id;
-          setAddStore(first);
-          setFromStore(first);
+        const preferred = lockedStoreId || scoped[0]?.store_id || "";
+        if (preferred) {
+          setAddStore(preferred);
+          setFromStore(preferred);
+          setSetQtyStore(preferred);
         }
-        if (d.stores?.[1]) setToStore(d.stores[1].store_id);
+        const other = shops.find((s) => s.id !== preferred);
+        if (other) setToStore(other.id);
       })
       .catch(() => setMsg("Could not load product"));
-  }, [variantId, defaultShopId]);
+  }, [variantId, lockedStoreId, shops]);
 
   useEffect(() => {
     load();
@@ -252,7 +263,9 @@ export function ProductDetailPanel({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-4">
           <div className="neu-inset mb-4 p-3">
-            <p className="mb-2 text-xs font-medium uppercase text-[var(--muted)]">Stock per store</p>
+            <p className="mb-2 text-xs font-medium uppercase text-[var(--muted)]">
+              {lockedStoreId ? `Stock at ${lockedStoreName}` : "Stock per store"}
+            </p>
             {stores.map((s) => (
               <div key={s.store_id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--shadow-dark)]/20 py-2 text-sm last:border-0">
                 <span>{s.store_name}</span>
@@ -262,17 +275,24 @@ export function ProductDetailPanel({
                 </span>
               </div>
             ))}
+            {stores.length === 0 && (
+              <p className="text-sm text-[var(--muted)]">No stock recorded at {lockedStoreName} yet.</p>
+            )}
           </div>
 
           {canEditInventory && (
             <div className="neu-inset mb-4 space-y-2 p-3 text-sm">
               <p className="text-xs font-medium uppercase text-[var(--muted)]">Set stock count</p>
-              <select value={setQtyStore} onChange={(e) => setSetQtyStore(e.target.value)} className="neu-inset w-full px-2 py-1 text-xs">
-                <option value="">Store</option>
-                {shops.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+              {lockedStoreId ? (
+                <p className="text-xs text-[var(--muted)]">{lockedStoreName}</p>
+              ) : (
+                <select value={setQtyStore} onChange={(e) => setSetQtyStore(e.target.value)} className="neu-inset w-full px-2 py-1 text-xs">
+                  <option value="">Store</option>
+                  {shops.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              )}
               <input type="number" min={0} value={setQtyValue} onChange={(e) => setSetQtyValue(Number(e.target.value))} className="neu-inset w-full px-2 py-1 text-xs" placeholder="Quantity on hand" />
               <button type="button" onClick={setStockQty} className="neu-btn w-full py-2 text-xs accent-text">Update stock</button>
             </div>
@@ -303,11 +323,15 @@ export function ProductDetailPanel({
 
           {section === "stock" && (
             <div className="space-y-3">
-              <select value={addStore} onChange={(e) => setAddStore(e.target.value)} className="neu-inset w-full px-3 py-2 text-sm">
-                {shops.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+              {lockedStoreId ? (
+                <p className="text-xs text-[var(--muted)]">Adding stock to {lockedStoreName}</p>
+              ) : (
+                <select value={addStore} onChange={(e) => setAddStore(e.target.value)} className="neu-inset w-full px-3 py-2 text-sm">
+                  {shops.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              )}
               <input type="number" min={1} value={addQty} onChange={(e) => setAddQty(Number(e.target.value))} className="neu-inset w-full px-3 py-2 text-sm" />
               <button type="button" onClick={addStock} className="neu-btn w-full py-2 text-sm accent-text">
                 Add units to store
@@ -325,11 +349,15 @@ export function ProductDetailPanel({
           {section === "transfer" && (
             <div className="space-y-3">
               <label className="text-xs text-[var(--muted)]">From store</label>
-              <select value={fromStore} onChange={(e) => setFromStore(e.target.value)} className="neu-inset w-full px-3 py-2 text-sm">
-                {shops.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+              {lockedStoreId ? (
+                <p className="text-sm">{lockedStoreName}</p>
+              ) : (
+                <select value={fromStore} onChange={(e) => setFromStore(e.target.value)} className="neu-inset w-full px-3 py-2 text-sm">
+                  {shops.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              )}
               <label className="text-xs text-[var(--muted)]">To store</label>
               <select value={toStore} onChange={(e) => setToStore(e.target.value)} className="neu-inset w-full px-3 py-2 text-sm">
                 {shops.map((s) => (

@@ -5,6 +5,7 @@ import { CategoryAccordion } from "@/components/CategoryAccordion";
 import { CategoryCrudPanel } from "@/components/admin/CategoryCrudPanel";
 import { ProductCrudPanel } from "@/components/admin/ProductCrudPanel";
 import { ProductDetailPanel } from "@/components/admin/ProductDetailPanel";
+import { SelectStorePrompt } from "@/components/admin/SelectStorePrompt";
 import { StoreScopeBanner } from "@/components/admin/StoreScopeBanner";
 import { FALLBACK_CATEGORIES, type Category } from "@/lib/catalog";
 import { apiFetch, getUser, hasPermission, PERMS } from "@/lib/auth";
@@ -31,12 +32,14 @@ export function InventoryAdminPage() {
   const { selectedStoreId, isAllStores, selectedStore } = useStore();
   const me = getUser();
   const canEdit = hasPermission(me, PERMS.inventoryEdit);
+  const canEditHere = canEdit && !isAllStores;
   const [tab, setTab] = useState<Tab>("stock");
   const [categories, setCategories] = useState<Category[]>(FALLBACK_CATEGORIES);
   const [selected, setSelected] = useState<string | null>(null);
   const [shops, setShops] = useState<{ id: string; name: string }[]>([]);
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [activeVariant, setActiveVariant] = useState<string | null>(null);
+  const [pickStoreMsg, setPickStoreMsg] = useState("");
 
   const loadCategories = useCallback(() => {
     apiFetch<{ categories: Category[] }>("/categories")
@@ -64,9 +67,30 @@ export function InventoryAdminPage() {
     if (tab === "stock") load();
   }, [tab, load]);
 
+  useEffect(() => {
+    if (isAllStores) {
+      setActiveVariant(null);
+    }
+    setPickStoreMsg("");
+    if (tab === "stock") load();
+  }, [isAllStores, selectedStoreId, tab, load]);
+
   function openVariantFromProduct(variantId: string) {
+    if (isAllStores) {
+      setPickStoreMsg("Select a specific store in the header to update products for that location.");
+      return;
+    }
     setActiveVariant(variantId);
     setTab("stock");
+  }
+
+  function handleStockRowClick(variantId: string) {
+    if (isAllStores) {
+      setPickStoreMsg("Select a specific store in the header to add or adjust stock for that location.");
+      return;
+    }
+    setActiveVariant(variantId);
+    setPickStoreMsg("");
   }
 
   const tabs: { id: Tab; label: string }[] = [
@@ -81,6 +105,14 @@ export function InventoryAdminPage() {
 
   return (
     <div className="space-y-4">
+      <StoreScopeBanner
+        hint={
+          isAllStores
+            ? "Stock is read-only across all stores. Pick one store in the header to update inventory."
+            : `Stock, products, and counts below are for ${selectedStore?.name ?? "this store"} only.`
+        }
+      />
+
       <div className="flex flex-wrap gap-2">
         {tabs.map((t) => (
           <button
@@ -94,13 +126,18 @@ export function InventoryAdminPage() {
         ))}
       </div>
 
+      {pickStoreMsg && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          {pickStoreMsg}
+        </p>
+      )}
+
       {tab === "stock" && (
         <>
-          {isAllStores && (
-            <StoreScopeBanner hint="Showing stock across all stores. Pick a store in the header to focus one location." />
-          )}
           <p className="text-sm text-[var(--muted)]">
-            Click a row to add stock or move items between stores.
+            {isAllStores
+              ? "View stock across all stores. Select a store in the header to edit quantities."
+              : "Click a row to add stock or move items for this store."}
           </p>
           <div className="grid items-start gap-6 lg:grid-cols-[280px_1fr]">
             <aside className="sticky top-4 max-h-[calc(100vh-10rem)] self-start overflow-y-auto">
@@ -124,10 +161,10 @@ export function InventoryAdminPage() {
                   {rows.map((r) => (
                     <tr
                       key={r.id}
-                      className={`cursor-pointer border-b border-[var(--shadow-dark)]/20 hover:opacity-80 ${
-                        activeVariant === r.product_variant_id ? "bg-[var(--shadow-dark)]/10" : ""
-                      }`}
-                      onClick={() => setActiveVariant(r.product_variant_id)}
+                      className={`border-b border-[var(--shadow-dark)]/20 ${
+                        canEditHere ? "cursor-pointer hover:opacity-80" : ""
+                      } ${activeVariant === r.product_variant_id ? "bg-[var(--shadow-dark)]/10" : ""}`}
+                      onClick={() => canEditHere && handleStockRowClick(r.product_variant_id)}
                     >
                       <td className="px-3 py-2">{r.product_name}</td>
                       {isAllStores && <td className="px-3 py-2 text-[var(--muted)]">{r.shop_name}</td>}
@@ -141,7 +178,7 @@ export function InventoryAdminPage() {
                   {rows.length === 0 && (
                     <tr>
                       <td colSpan={isAllStores ? 7 : 6} className="px-4 py-8 text-center text-[var(--muted)]">
-                        No stock in this view. Add opening stock from a product row.
+                        No stock in this view. Select a store and add opening stock from a product row.
                       </td>
                     </tr>
                   )}
@@ -152,29 +189,36 @@ export function InventoryAdminPage() {
         </>
       )}
 
-      {tab === "products" && (
-        <ProductCrudPanel
-          categories={categories}
-          canEdit={canEdit}
-          onChanged={() => {
-            loadCategories();
-            load();
-          }}
-          onOpenVariant={openVariantFromProduct}
-        />
-      )}
+      {tab === "products" &&
+        (isAllStores ? (
+          <SelectStorePrompt action="add or update products" />
+        ) : (
+          <ProductCrudPanel
+            categories={categories}
+            canEdit={canEditHere}
+            storeId={selectedStoreId}
+            onChanged={() => {
+              loadCategories();
+              load();
+            }}
+            onOpenVariant={openVariantFromProduct}
+          />
+        ))}
 
-      {tab === "categories" && (
-        <CategoryCrudPanel categories={categories} canEdit={canEdit} onChanged={loadCategories} />
-      )}
+      {tab === "categories" &&
+        (isAllStores ? (
+          <SelectStorePrompt action="manage categories and catalog setup" />
+        ) : (
+          <CategoryCrudPanel categories={categories} canEdit={canEditHere} onChanged={loadCategories} />
+        ))}
 
-      {activeVariant && (
+      {activeVariant && !isAllStores && (
         <ProductDetailPanel
           variantId={activeVariant}
           shops={shops}
           categories={categories}
-          canEditInventory={canEdit}
-          defaultShopId={selectedStoreId}
+          canEditInventory={canEditHere}
+          lockedStoreId={selectedStoreId}
           onClose={() => setActiveVariant(null)}
           onUpdated={load}
         />

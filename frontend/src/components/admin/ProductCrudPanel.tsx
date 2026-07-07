@@ -28,9 +28,10 @@ type Props = {
   onChanged: () => void;
   onOpenVariant?: (variantId: string) => void;
   canEdit?: boolean;
+  storeId?: string;
 };
 
-export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit = true }: Props) {
+export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit = true, storeId = "" }: Props) {
   const sellableCategories = useSellableCategoryOptions(categories);
   const parentCategories = categories;
   const [products, setProducts] = useState<Product[]>([]);
@@ -131,6 +132,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
           cost_price: costPrice,
           colors: nameOnly ? ["Default"] : colorList.length ? colorList : ["Default"],
           initial_stock_per_store: initialStock,
+          shop_id: storeId || undefined,
         }),
       });
       setMsg("Product set up");

@@ -11,6 +11,7 @@ import {
 } from "@/components/DashboardCharts";
 import { GrandTotalByStore } from "@/components/admin/GrandTotalByStore";
 import { StaffTodaySales, type TodaySaleRow } from "@/components/admin/StaffTodaySales";
+import { StoreScopeBanner } from "@/components/admin/StoreScopeBanner";
 import { apiFetch, getUser, isStaffUser } from "@/lib/auth";
 import { useStore, useStoreApiPath } from "@/lib/store-context";
 
@@ -31,7 +32,7 @@ type AnalyticsResponse = DashboardData & {
 };
 
 export function AnalyticsPageClient() {
-  const { isAllStores } = useStore();
+  const { isAllStores, selectedStore } = useStore();
   const apiPath = useStoreApiPath("/analytics/dashboard");
   const [data, setData] = useState<AnalyticsResponse>(EMPTY_DASHBOARD);
   const staffView = isStaffUser(getUser());
@@ -46,6 +47,15 @@ export function AnalyticsPageClient() {
 
   return (
     <div className="space-y-6">
+      <StoreScopeBanner
+        hint={
+          staffView
+            ? "Your sales analytics only — units and products sold, not company finances."
+            : isAllStores
+              ? "Analytics across all stores. Select one store in the header to focus."
+              : `Analytics for ${selectedStore?.name ?? "selected store"} only.`
+        }
+      />
       <p className="text-sm text-[var(--muted)]">
         {staffView
           ? "Your sales performance — products you sold today and what is moving."

@@ -248,15 +248,6 @@ export function canAccessPath(user: AuthUser | null, pathname: string): boolean 
   ) {
     return false;
   }
-  if (pathname.startsWith("/admin/expenses")) {
-    return hasAnyPermission(user, [
-      PERMS.finance,
-      PERMS.financeEdit,
-      PERMS.revenue,
-      PERMS.sales,
-      PERMS.salesCreate,
-    ]);
-  }
   const perm = permissionForPath(pathname);
   if (!perm) return true;
   return hasPermission(user, perm);
