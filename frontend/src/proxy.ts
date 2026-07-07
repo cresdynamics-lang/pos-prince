@@ -1,18 +1,24 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/", "/login"];
+const PUBLIC_PATHS = ["/", "/login", "/manifest.webmanifest", "/pos-sw.js", "/icons"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = request.cookies.get("prince_pos_session")?.value;
 
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  const isPublic =
+    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/")) ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/pos-sw.js";
   const isStatic =
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
+    pathname.startsWith("/icons/") ||
     pathname.endsWith(".svg") ||
-    pathname.endsWith(".ico");
+    pathname.endsWith(".png") ||
+    pathname.endsWith(".ico") ||
+    pathname.endsWith(".webmanifest");
 
   if (isStatic) {
     return NextResponse.next();
