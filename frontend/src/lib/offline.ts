@@ -3,6 +3,7 @@ export type CheckoutItem = {
   quantity: number;
   sale_price: number;
   inventory_shop_id?: string;
+  external_source_shop_name?: string;
 };
 
 export type CheckoutPayload = {

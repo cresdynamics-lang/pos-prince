@@ -20,6 +20,9 @@ type Product = {
   provisioned: boolean;
 };
 
+const MULTI_PRODUCT_SLUGS = new Set(["ties", "caps", "fedora-hats"]);
+const NAME_ONLY_SLUGS = new Set(["ties", "caps", "fedora-hats", "belts"]);
+
 type Props = {
   categories: Category[];
   onChanged: () => void;
@@ -38,6 +41,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
   const [msg, setMsg] = useState("");
 
   const [categoryId, setCategoryId] = useState("");
+  const [productName, setProductName] = useState("");
   const [brand, setBrand] = useState("");
   const [basePrice, setBasePrice] = useState(0);
   const [costPrice, setCostPrice] = useState(0);
@@ -64,7 +68,16 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
     [sellableCategories, products],
   );
 
+  const setupCategories = useMemo(() => {
+    return sellableCategories.filter(
+      (c) =>
+        MULTI_PRODUCT_SLUGS.has(c.slug) ||
+        !products.some((p) => p.category_id === c.id && p.provisioned),
+    );
+  }, [sellableCategories, products]);
+
   const selectedCategory = sellableCategories.find((c) => c.id === categoryId);
+  const nameOnly = selectedCategory ? NAME_ONLY_SLUGS.has(selectedCategory.slug) : false;
 
   const visibleProducts = showInactive
     ? products
@@ -73,6 +86,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
   function resetFields() {
     const first = unprovisioned[0]?.id ?? sellableCategories[0]?.id ?? "";
     setCategoryId(first);
+    setProductName("");
     setBrand("");
     setBasePrice(0);
     setCostPrice(0);
@@ -110,11 +124,12 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
       await apiFetch("/products", {
         method: "POST",
         body: JSON.stringify({
+          name: productName.trim() || selectedCategory?.name,
           category_id: categoryId,
           brand,
           base_price: basePrice,
           cost_price: costPrice,
-          colors: colorList.length ? colorList : ["Default"],
+          colors: nameOnly ? ["Default"] : colorList.length ? colorList : ["Default"],
           initial_stock_per_store: initialStock,
         }),
       });
@@ -340,19 +355,31 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
             <p className="text-xs font-medium text-[var(--muted)]">Subcategory = product</p>
             <select
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
+              onChange={(e) => {
+                setCategoryId(e.target.value);
+                const cat = sellableCategories.find((c) => c.id === e.target.value);
+                if (cat && MULTI_PRODUCT_SLUGS.has(cat.slug)) setProductName("");
+              }}
               className="neu-inset w-full px-3 py-2 text-sm"
             >
               <option value="">Select subcategory</option>
-              {unprovisioned.map((c) => (
+              {setupCategories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.parent_name ? `${c.parent_name} › ${c.name}` : c.name}
                 </option>
               ))}
             </select>
-            {selectedCategory && (
+            {(nameOnly || (selectedCategory && MULTI_PRODUCT_SLUGS.has(selectedCategory.slug))) && (
+              <input
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                placeholder={MULTI_PRODUCT_SLUGS.has(selectedCategory?.slug ?? "") ? "Product name e.g. Silk Red Tie" : "Product name"}
+                className="neu-inset w-full px-3 py-2 text-sm"
+              />
+            )}
+            {selectedCategory && !MULTI_PRODUCT_SLUGS.has(selectedCategory.slug) && (
               <p className="rounded-lg bg-[var(--shadow-dark)]/10 px-3 py-2 text-xs">
-                Product name: <strong>{selectedCategory.name}</strong>
+                Product name: <strong>{productName || selectedCategory.name}</strong>
               </p>
             )}
             <input
@@ -377,12 +404,14 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
               placeholder="Cost price (KES)"
               className="neu-inset w-full px-3 py-2 text-sm"
             />
-            <input
-              value={colors}
-              onChange={(e) => setColors(e.target.value)}
-              placeholder="Colors (comma-separated)"
-              className="neu-inset w-full px-3 py-2 text-sm"
-            />
+            {!nameOnly && (
+              <input
+                value={colors}
+                onChange={(e) => setColors(e.target.value)}
+                placeholder="Colors (comma-separated)"
+                className="neu-inset w-full px-3 py-2 text-sm"
+              />
+            )}
             <input
               type="number"
               min={0}

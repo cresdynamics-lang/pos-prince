@@ -75,6 +75,10 @@ export function ProductDetailPanel({
   const [fromStore, setFromStore] = useState("");
   const [toStore, setToStore] = useState("");
   const [transferQty, setTransferQty] = useState(1);
+  const [newSize, setNewSize] = useState("");
+  const [newVariantQty, setNewVariantQty] = useState(0);
+  const [setQtyStore, setSetQtyStore] = useState("");
+  const [setQtyValue, setSetQtyValue] = useState(0);
 
   const load = useCallback(() => {
     if (!variantId) return;
@@ -150,6 +154,49 @@ export function ProductDetailPanel({
     }
   }
 
+  async function setStockQty() {
+    if (!variantId || !setQtyStore) return;
+    setMsg("");
+    try {
+      const res = await apiFetch<{ quantity: number }>("/inventory/set", {
+        method: "POST",
+        body: JSON.stringify({
+          shop_id: setQtyStore,
+          product_variant_id: variantId,
+          quantity: setQtyValue,
+        }),
+      });
+      setMsg(`Stock set to ${res.quantity}`);
+      load();
+      onUpdated();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Could not set stock");
+    }
+  }
+
+  async function addVariantSize() {
+    if (!variant?.product_id || !addStore) return;
+    setMsg("");
+    try {
+      await apiFetch("/variants", {
+        method: "POST",
+        body: JSON.stringify({
+          product_id: variant.product_id,
+          size: newSize,
+          shop_id: addStore,
+          initial_quantity: newVariantQty,
+        }),
+      });
+      setMsg(newSize ? `Added size ${newSize}` : "Variant added");
+      setNewSize("");
+      setNewVariantQty(0);
+      load();
+      onUpdated();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Could not add variant");
+    }
+  }
+
   async function transferStock() {
     setMsg("");
     try {
@@ -207,7 +254,7 @@ export function ProductDetailPanel({
           <div className="neu-inset mb-4 p-3">
             <p className="mb-2 text-xs font-medium uppercase text-[var(--muted)]">Stock per store</p>
             {stores.map((s) => (
-              <div key={s.store_id} className="flex justify-between border-b border-[var(--shadow-dark)]/20 py-2 text-sm last:border-0">
+              <div key={s.store_id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--shadow-dark)]/20 py-2 text-sm last:border-0">
                 <span>{s.store_name}</span>
                 <span>
                   Opening <strong>{s.opening_stock}</strong> · On hand{" "}
@@ -216,6 +263,20 @@ export function ProductDetailPanel({
               </div>
             ))}
           </div>
+
+          {canEditInventory && (
+            <div className="neu-inset mb-4 space-y-2 p-3 text-sm">
+              <p className="text-xs font-medium uppercase text-[var(--muted)]">Set stock count</p>
+              <select value={setQtyStore} onChange={(e) => setSetQtyStore(e.target.value)} className="neu-inset w-full px-2 py-1 text-xs">
+                <option value="">Store</option>
+                {shops.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              <input type="number" min={0} value={setQtyValue} onChange={(e) => setSetQtyValue(Number(e.target.value))} className="neu-inset w-full px-2 py-1 text-xs" placeholder="Quantity on hand" />
+              <button type="button" onClick={setStockQty} className="neu-btn w-full py-2 text-xs accent-text">Update stock</button>
+            </div>
+          )}
 
           {section === "details" && (
             <div className="space-y-3">
@@ -249,7 +310,14 @@ export function ProductDetailPanel({
               </select>
               <input type="number" min={1} value={addQty} onChange={(e) => setAddQty(Number(e.target.value))} className="neu-inset w-full px-3 py-2 text-sm" />
               <button type="button" onClick={addStock} className="neu-btn w-full py-2 text-sm accent-text">
-                Add to store inventory
+                Add units to store
+              </button>
+              <hr className="border-[var(--shadow-dark)]/20" />
+              <p className="text-xs text-[var(--muted)]">Add a new size (jackets, shoes, etc.)</p>
+              <input value={newSize} onChange={(e) => setNewSize(e.target.value)} placeholder="Size e.g. M, 42" className="neu-inset w-full px-3 py-2 text-sm" />
+              <input type="number" min={0} value={newVariantQty} onChange={(e) => setNewVariantQty(Number(e.target.value))} placeholder="Initial stock" className="neu-inset w-full px-3 py-2 text-sm" />
+              <button type="button" onClick={addVariantSize} className="neu-btn w-full py-2 text-sm accent-text">
+                Add size &amp; stock
               </button>
             </div>
           )}

@@ -61,7 +61,10 @@ export const FALLBACK_CATEGORIES: Category[] = [
     { id: "9c", name: "Linen Shirts", slug: "linen-shirts", variant_types: ["size", "color"] },
     { id: "9d", name: "Linen Shorts", slug: "linen-shorts", variant_types: ["size", "color"] },
   ]},
-  { id: "10", name: "Caps & Hats", slug: "caps-hats", variant_types: ["size", "color"], children: [] },
+  { id: "10", name: "Caps & Hats", slug: "caps-hats", variant_types: ["color"], children: [
+    { id: "10a", name: "Caps", slug: "caps", variant_types: ["color"], children: [] },
+    { id: "10b", name: "Fedora Hats", slug: "fedora-hats", variant_types: ["color"], children: [] },
+  ]},
   { id: "11", name: "Belts & Ties", slug: "belts-ties", variant_types: ["color", "size"], children: [
     { id: "11a", name: "Belts", slug: "belts", variant_types: ["size", "color"] },
     { id: "11b", name: "Ties", slug: "ties", variant_types: ["color"] },

@@ -32,24 +32,23 @@ func (h *Handler) ListProducts(c *gin.Context) {
 	parentFilter := c.Query("parent_id")
 	activeOnly := c.Query("active") != "false"
 
-	// List every sellable leaf category (subcategory = product). Parent categories with
-	// children are navigational only; a leaf is either a subcategory or a root with no children.
+	// Provisioned products (supports multiple products per category e.g. ties, caps).
 	query := `
-		SELECT COALESCE(p.id::text, ''),
-		       COALESCE(p.name, cat.name),
+		SELECT p.id::text,
+		       p.name,
 		       p.brand,
 		       cat.id::text,
 		       COALESCE(parent.name, cat.name),
 		       COALESCE(parent.name, ''),
 		       cat.slug,
-		       COALESCE(p.base_price, 0),
-		       COALESCE(p.cost_price, 0),
-		       COALESCE(p.is_active, FALSE),
-		       COALESCE(COUNT(pv.id), 0)::int,
-		       (p.id IS NOT NULL)
-		FROM categories cat
+		       p.base_price,
+		       p.cost_price,
+		       p.is_active,
+		       COUNT(pv.id)::int,
+		       TRUE
+		FROM products p
+		JOIN categories cat ON cat.id = p.category_id
 		LEFT JOIN categories parent ON parent.id = cat.parent_id
-		LEFT JOIN products p ON p.category_id = cat.id
 		LEFT JOIN product_variants pv ON pv.product_id = p.id
 		WHERE NOT EXISTS (SELECT 1 FROM categories ch WHERE ch.parent_id = cat.id)
 	`
@@ -66,9 +65,42 @@ func (h *Handler) ListProducts(c *gin.Context) {
 		n++
 	}
 	if activeOnly {
-		query += ` AND (p.id IS NULL OR p.is_active = TRUE)`
+		query += ` AND p.is_active = TRUE`
 	}
-	query += ` GROUP BY cat.id, parent.id, p.id ORDER BY COALESCE(parent.name, cat.name), cat.name`
+	query += ` GROUP BY cat.id, parent.id, p.id`
+
+	// Unprovisioned leaf categories (no product row yet).
+	query += `
+		UNION ALL
+		SELECT '',
+		       cat.name,
+		       NULL,
+		       cat.id::text,
+		       COALESCE(parent.name, cat.name),
+		       COALESCE(parent.name, ''),
+		       cat.slug,
+		       0,
+		       0,
+		       FALSE,
+		       0,
+		       FALSE
+		FROM categories cat
+		LEFT JOIN categories parent ON parent.id = cat.parent_id
+		WHERE NOT EXISTS (SELECT 1 FROM categories ch WHERE ch.parent_id = cat.id)
+		  AND NOT EXISTS (SELECT 1 FROM products p WHERE p.category_id = cat.id)
+	`
+	if categoryFilter != "" {
+		query += fmt.Sprintf(` AND cat.id = $%d`, n)
+		args = append(args, categoryFilter)
+		n++
+	}
+	if parentFilter != "" {
+		query += fmt.Sprintf(` AND (parent.id = $%d OR cat.id = $%d)`, n, n)
+		args = append(args, parentFilter)
+		n++
+	}
+
+	query += ` ORDER BY 5, 2`
 
 	rows, err := h.DB.Query(c.Request.Context(), query, args...)
 	if err != nil {
@@ -127,8 +159,9 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "choose a subcategory — parent categories are not sellable products"})
 		return
 	}
-	if existingProducts > 0 {
-		c.JSON(http.StatusConflict, gin.H{"error": "this subcategory already has a product — update stock or pricing instead"})
+	multiProduct := catalog.AllowsMultipleProducts(catSlug)
+	if existingProducts > 0 && !multiProduct {
+		c.JSON(http.StatusConflict, gin.H{"error": "this subcategory already has a product — add stock or create a named item in Ties/Caps instead"})
 		return
 	}
 
@@ -138,7 +171,9 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	}
 
 	colors := req.Colors
-	if len(colors) == 0 {
+	if catalog.IsNameOnlyCategory(catSlug) {
+		colors = []string{"Default"}
+	} else if len(colors) == 0 {
 		colors = []string{"Default"}
 	}
 

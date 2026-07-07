@@ -44,6 +44,8 @@ func New(pool *pgxpool.Pool, cfg config.Config) *gin.Engine {
 
 			protected.GET("/inventory", middleware.RequirePermission(auth.PermInventory), h.ListInventory)
 			protected.POST("/inventory/add", middleware.RequirePermission(auth.PermInventoryE), h.AddStock)
+			protected.POST("/inventory/set", middleware.RequireAnyPermission(auth.PermInventoryE, auth.PermSalesC), h.SetStock)
+			protected.POST("/variants", middleware.RequireAnyPermission(auth.PermInventoryE, auth.PermSalesC), h.CreateVariant)
 			protected.GET("/variants", variantRead, h.ListProductVariants)
 			protected.GET("/variants/:id", variantRead, h.GetVariantDetail)
 

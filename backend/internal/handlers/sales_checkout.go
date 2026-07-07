@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/cresdynamics-lang/pos-prince/backend/internal/middleware"
@@ -13,10 +14,11 @@ import (
 )
 
 type checkoutLineRequest struct {
-	ProductVariantID string  `json:"product_variant_id" binding:"required"`
-	Quantity         int     `json:"quantity" binding:"required,min=1"`
-	SalePrice        float64 `json:"sale_price" binding:"required,min=0"`
-	InventoryShopID  string  `json:"inventory_shop_id"`
+	ProductVariantID       string  `json:"product_variant_id" binding:"required"`
+	Quantity               int     `json:"quantity" binding:"required,min=1"`
+	SalePrice              float64 `json:"sale_price" binding:"required,min=0"`
+	InventoryShopID        string  `json:"inventory_shop_id"`
+	ExternalSourceShopName string  `json:"external_source_shop_name"`
 }
 
 type checkoutRequest struct {
@@ -64,6 +66,7 @@ func (h *Handler) CheckoutSale(c *gin.Context) {
 
 	var grossTotal, lineDiscountTotal, netBeforeOverall float64
 	lineResults := []checkoutLineResult{}
+	borrowedNotes := []string{}
 
 	for _, item := range req.Items {
 		variantID, err := uuid.Parse(item.ProductVariantID)
@@ -73,7 +76,10 @@ func (h *Handler) CheckoutSale(c *gin.Context) {
 		}
 
 		invShopID := sellingShopID
-		if item.InventoryShopID != "" {
+		externalSource := strings.TrimSpace(item.ExternalSourceShopName)
+		if externalSource != "" {
+			// Stock borrowed from outside the registered shops — no inventory deduction.
+		} else if item.InventoryShopID != "" {
 			parsed, err := uuid.Parse(item.InventoryShopID)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid inventory_shop_id"})
@@ -102,24 +108,35 @@ func (h *Handler) CheckoutSale(c *gin.Context) {
 		lineDiscountTotal += lineDiscount
 		netBeforeOverall += lineNet
 
-		qty, err := lockInventory(ctx, tx, invShopID, variantID)
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "stock not found for fulfillment store"})
-			return
-		}
-		if qty < item.Quantity {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error":     "insufficient stock at fulfillment store",
-				"variant":   item.ProductVariantID,
-				"available": qty,
-			})
-			return
-		}
+		closingStock := 0
+		if externalSource != "" {
+			borrowedNotes = append(borrowedNotes, fmt.Sprintf("%s ×%d from %s (external)", item.ProductVariantID, item.Quantity, externalSource))
+		} else {
+			qty, err := lockInventory(ctx, tx, invShopID, variantID)
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "stock not found for fulfillment store"})
+				return
+			}
+			if qty < item.Quantity {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error":     "insufficient stock at fulfillment store",
+					"variant":   item.ProductVariantID,
+					"available": qty,
+				})
+				return
+			}
 
-		newQty, err := deductInventoryForSale(ctx, tx, sellingShopID, invShopID, variantID, item.Quantity, qty)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+			closingStock, err = deductInventoryForSale(ctx, tx, sellingShopID, invShopID, variantID, item.Quantity, qty)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			if invShopID != sellingShopID {
+				var invName, sellName string
+				_ = tx.QueryRow(ctx, `SELECT name FROM shops WHERE id = $1`, invShopID).Scan(&invName)
+				_ = tx.QueryRow(ctx, `SELECT name FROM shops WHERE id = $1`, sellingShopID).Scan(&sellName)
+				borrowedNotes = append(borrowedNotes, fmt.Sprintf("Stock from %s sold at %s", invName, sellName))
+			}
 		}
 
 		lineResults = append(lineResults, checkoutLineResult{
@@ -129,7 +146,7 @@ func (h *Handler) CheckoutSale(c *gin.Context) {
 			SalePrice:        item.SalePrice,
 			LineDiscount:     lineDiscount,
 			InventoryShopID:  invShopID.String(),
-			ClosingStock:     newQty,
+			ClosingStock:     closingStock,
 		})
 	}
 
@@ -183,9 +200,16 @@ func (h *Handler) CheckoutSale(c *gin.Context) {
 		"net_total":           netTotal,
 		"items":               lineResults,
 	})
+	summary := fmt.Sprintf("POS sale %s (%d items, %s)", kes(netTotal), len(req.Items), req.PaymentMethod)
+	if len(borrowedNotes) > 0 {
+		summary += " — borrowed: " + strings.Join(borrowedNotes, "; ")
+	}
 	h.logAction(c, &sellingShopID, "sale.checkout", "order", orderID.String(),
-		fmt.Sprintf("POS sale %s (%d items, %s)", kes(netTotal), len(req.Items), req.PaymentMethod),
-		map[string]interface{}{"net_total": netTotal, "items": len(req.Items), "payment": req.PaymentMethod})
+		summary,
+		map[string]interface{}{
+			"net_total": netTotal, "items": len(req.Items), "payment": req.PaymentMethod,
+			"borrowed": borrowedNotes, "line_discount": lineDiscountTotal, "overall_discount": req.OverallDiscount,
+		})
 }
 
 func deductInventoryForSale(ctx context.Context, tx pgx.Tx, sellingShopID, inventoryShopID, variantID uuid.UUID, soldQty, currentQty int) (int, error) {
