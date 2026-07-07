@@ -23,6 +23,11 @@ type activityRow struct {
 }
 
 func (h *Handler) ListActivity(c *gin.Context) {
+	sc := scopeFromRequest(c)
+	if !sc.Director {
+		c.JSON(http.StatusForbidden, gin.H{"error": "directors only"})
+		return
+	}
 	limit := 50
 	if n, err := strconv.Atoi(c.DefaultQuery("limit", "50")); err == nil && n > 0 && n <= 200 {
 		limit = n

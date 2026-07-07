@@ -19,6 +19,7 @@ export type QueuedSale = CheckoutPayload & {
 
 const QUEUE_KEY = "prince_pos_offline_queue";
 const CATALOG_KEY = "prince_pos_catalog";
+const SHOPS_KEY = "prince_pos_shops";
 const VARIANTS_PREFIX = "prince_pos_variants_";
 
 export function isOnline(): boolean {
@@ -62,6 +63,22 @@ export function getCachedCatalog<T>(): T | null {
     const raw = localStorage.getItem(CATALOG_KEY);
     if (!raw) return null;
     return JSON.parse(raw).categories as T;
+  } catch {
+    return null;
+  }
+}
+
+export function cacheShops(shops: unknown) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(SHOPS_KEY, JSON.stringify({ at: Date.now(), shops }));
+}
+
+export function getCachedShops<T>(): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(SHOPS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw).shops as T;
   } catch {
     return null;
   }

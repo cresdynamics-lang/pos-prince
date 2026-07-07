@@ -95,8 +95,13 @@ func (h *Handler) queryFinanceSnapshot(ctx context.Context, shopID string) finan
 }
 
 func (h *Handler) FinanceOverview(c *gin.Context) {
+	sc := scopeFromRequest(c)
+	if !sc.Director {
+		c.JSON(http.StatusForbidden, gin.H{"error": "directors only"})
+		return
+	}
 	ctx := c.Request.Context()
-	shopID := c.Query("shop_id")
+	shopID := sc.ShopID
 	snap := h.queryFinanceSnapshot(ctx, shopID)
 
 	shopPayment := ""

@@ -1,26 +1,10 @@
-import type { Metadata, Viewport } from "next";
-import { InstallPwaBanner } from "@/components/PwaRegister";
-
-export const metadata: Metadata = {
-  title: "Prince Esquire POS",
-  description: "Sell in-store — works offline and syncs when connected",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "PE POS",
-  },
-};
-
-export const viewport: Viewport = {
-  themeColor: "#b8860b",
-};
+import { RequireAuth } from "@/components/RequireAuth";
+import { StoreProvider } from "@/lib/store-context";
 
 export default function PosLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
-      <InstallPwaBanner />
-      {children}
-    </>
+    <RequireAuth>
+      <StoreProvider>{children}</StoreProvider>
+    </RequireAuth>
   );
 }

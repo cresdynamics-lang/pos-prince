@@ -15,9 +15,10 @@ export default function LoginForm() {
 
   useEffect(() => {
     if (getUser()) {
-      router.replace("/admin/dashboard");
+      const next = searchParams.get("next") || "/admin/dashboard";
+      router.replace(next.startsWith("/login") ? "/admin/dashboard" : next);
     }
-  }, [router]);
+  }, [router, searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

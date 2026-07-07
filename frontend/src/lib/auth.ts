@@ -103,9 +103,13 @@ export function hasAnyPermission(user: AuthUser | null, perms: string[]): boolea
   return perms.some((p) => hasPermission(user, p));
 }
 
-/** Shop managers and cashiers — sales-focused UI, no revenue figures on dashboard. */
+/** Shop managers and cashiers — personal sales UI, no company finance/revenue. */
 export function isStaffUser(user: AuthUser | null): boolean {
   return user?.role === "shop_manager" || user?.role === "cashier";
+}
+
+export function isDirector(user: AuthUser | null): boolean {
+  return user?.role === "director";
 }
 
 export const PERMS = {
@@ -135,8 +139,8 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", permission: PERMS.dashboard, icon: "◫" },
+  { href: "/admin/notifications", label: "Notifications", permission: PERMS.analytics, icon: "◷" },
   { href: "/admin/analytics", label: "Analytics", permission: PERMS.analytics, icon: "◔" },
-  { href: "/admin/activity", label: "Activity", permission: PERMS.analytics, icon: "◷" },
   { href: "/admin/sales", label: "Sales", permission: PERMS.sales, icon: "◎" },
   { href: "/admin/revenue", label: "Revenue", permission: PERMS.revenue, icon: "◈" },
   { href: "/admin/finance", label: "Finance", permission: PERMS.finance, icon: "₣" },
@@ -176,6 +180,18 @@ export function permissionForPath(pathname: string): string | null {
 
 export function canAccessPath(user: AuthUser | null, pathname: string): boolean {
   if (!user) return false;
+  if (pathname.startsWith("/admin/expenses") && !isDirector(user)) {
+    return false;
+  }
+  if (
+    (pathname.startsWith("/admin/revenue") ||
+      pathname.startsWith("/admin/finance") ||
+      pathname.startsWith("/admin/notifications") ||
+      pathname.startsWith("/admin/activity")) &&
+    !isDirector(user)
+  ) {
+    return false;
+  }
   if (pathname.startsWith("/admin/expenses")) {
     return hasAnyPermission(user, [
       PERMS.finance,

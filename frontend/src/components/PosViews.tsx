@@ -5,9 +5,10 @@ import { AppShell } from "@/components/AppShell";
 import { apiFetch } from "@/lib/auth";
 import {
   cacheCatalog,
+  cacheShops,
   cacheVariants,
   enqueueSale,
-  getCachedCatalog,
+  getCachedShops,
   getCachedVariants,
   isOnline,
   type CheckoutPayload,
@@ -49,7 +50,7 @@ function variantLabel(v: VariantTile) {
 
 export function PosView({ categories }: { categories: Category[] }) {
   const { selectedStoreId } = useStore();
-  const { online, pending, syncMsg, clearMsg } = useOfflineSync();
+  const { online, pending, syncMsg, clearMsg, refreshPending } = useOfflineSync();
   const [parentSlug, setParentSlug] = useState<string | null>(null);
   const [subSlug, setSubSlug] = useState<string | null>(null);
   const [variants, setVariants] = useState<VariantTile[]>([]);
@@ -65,14 +66,24 @@ export function PosView({ categories }: { categories: Category[] }) {
   }, [categories]);
 
   useEffect(() => {
+    const cached = getCachedShops<Shop[]>();
+    if (cached?.length) {
+      setShops(cached);
+      const def = selectedStoreId || cached[0]?.id || "";
+      if (def) setSellingStore((s) => selectedStoreId || s || def);
+    }
+
     apiFetch<{ shops: Shop[] }>("/shops")
       .then((d) => {
         const list = d.shops ?? [];
         setShops(list);
+        cacheShops(list);
         const def = selectedStoreId || list[0]?.id || "";
         if (def) setSellingStore((s) => selectedStoreId || s || def);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cached?.length) setMsg("Offline — using last saved store if available");
+      });
   }, [selectedStoreId]);
 
   useEffect(() => {
@@ -190,6 +201,7 @@ export function PosView({ categories }: { categories: Category[] }) {
     if (!isOnline()) {
       enqueueSale(payload);
       setCart([]);
+      refreshPending();
       setMsg(`Saved offline — ${payload.items.length} item(s) will sync when online`);
       return;
     }
@@ -206,6 +218,7 @@ export function PosView({ categories }: { categories: Category[] }) {
       if (!isOnline()) {
         enqueueSale(payload);
         setCart([]);
+        refreshPending();
         setMsg("Connection lost — sale queued for sync");
       } else {
         setMsg(e instanceof Error ? e.message : "Checkout failed");

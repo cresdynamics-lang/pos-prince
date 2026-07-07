@@ -36,7 +36,8 @@ type saleRecord struct {
 }
 
 func (h *Handler) SalesList(c *gin.Context) {
-	shopFilter := c.Query("shop_id")
+	sc := scopeFromRequest(c)
+	shopFilter := sc.ShopID
 	query := `
 		SELECT st.id, st.order_id::text, p.name, pv.sku, pv.size, pv.color, pv.material,
 		       ss.name, st.shop_id::text, invs.name, st.inventory_shop_id::text,
@@ -54,9 +55,15 @@ func (h *Handler) SalesList(c *gin.Context) {
 		WHERE 1=1
 	`
 	args := []interface{}{}
+	argN := 1
 	if shopFilter != "" {
-		query += ` AND st.shop_id = $1`
+		query += fmt.Sprintf(` AND st.shop_id = $%d`, argN)
 		args = append(args, shopFilter)
+		argN++
+	}
+	if sc.CashierID != nil {
+		query += fmt.Sprintf(` AND st.cashier_id = $%d`, argN)
+		args = append(args, *sc.CashierID)
 	}
 	query += ` ORDER BY st.transaction_time DESC LIMIT 200`
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCategoryOptions } from "@/components/admin/CategoryCrudPanel";
 import type { Category } from "@/lib/catalog";
-import { apiFetch, getUser, hasPermission, PERMS } from "@/lib/auth";
+import { apiFetch } from "@/lib/auth";
 
 type VariantDetail = {
   id: string;
@@ -38,6 +38,7 @@ type Props = {
   onClose: () => void;
   onUpdated: () => void;
   canEditInventory?: boolean;
+  defaultShopId?: string;
 };
 
 export function ProductDetailPanel({
@@ -47,23 +48,21 @@ export function ProductDetailPanel({
   onClose,
   onUpdated,
   canEditInventory = true,
+  defaultShopId = "",
 }: Props) {
-  const me = getUser();
-  const canRecordSale = hasPermission(me, PERMS.salesCreate);
   const tabs = useMemo(
     () =>
       [
         { id: "details" as const, label: "Details", show: canEditInventory },
         { id: "stock" as const, label: "Add stock", show: canEditInventory },
         { id: "transfer" as const, label: "Move stock", show: canEditInventory },
-        { id: "sale" as const, label: "Sale", show: canRecordSale },
       ].filter((t) => t.show),
-    [canEditInventory, canRecordSale],
+    [canEditInventory],
   );
   const categoryOptions = useCategoryOptions(categories);
   const [variant, setVariant] = useState<VariantDetail | null>(null);
   const [stores, setStores] = useState<StoreStock[]>([]);
-  const [section, setSection] = useState<"details" | "stock" | "transfer" | "sale">("details");
+  const [section, setSection] = useState<"details" | "stock" | "transfer">("details");
   const [msg, setMsg] = useState("");
   const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -76,10 +75,6 @@ export function ProductDetailPanel({
   const [fromStore, setFromStore] = useState("");
   const [toStore, setToStore] = useState("");
   const [transferQty, setTransferQty] = useState(1);
-  const [saleStore, setSaleStore] = useState("");
-  const [salePrice, setSalePrice] = useState(0);
-  const [saleQty, setSaleQty] = useState(1);
-  const [payment, setPayment] = useState("cash");
 
   const load = useCallback(() => {
     if (!variantId) return;
@@ -93,16 +88,17 @@ export function ProductDetailPanel({
         setCostPrice(d.variant.cost_price);
         setBrand(d.variant.brand ?? "");
         setIsActive(d.variant.is_active);
-        setSalePrice(d.variant.base_price);
         if (d.stores?.[0]) {
-          setAddStore(d.stores[0].store_id);
-          setFromStore(d.stores[0].store_id);
-          setSaleStore(d.stores[0].store_id);
+          const preferred =
+            defaultShopId && d.stores.find((s) => s.store_id === defaultShopId)?.store_id;
+          const first = preferred ?? d.stores[0].store_id;
+          setAddStore(first);
+          setFromStore(first);
         }
         if (d.stores?.[1]) setToStore(d.stores[1].store_id);
       })
       .catch(() => setMsg("Could not load product"));
-  }, [variantId]);
+  }, [variantId, defaultShopId]);
 
   useEffect(() => {
     load();
@@ -113,8 +109,6 @@ export function ProductDetailPanel({
       setSection(tabs[0].id);
     }
   }, [section, tabs]);
-
-  const discountPreview = Math.max(0, (basePrice - salePrice) * saleQty);
 
   if (!variantId) return null;
 
@@ -176,27 +170,6 @@ export function ProductDetailPanel({
     }
   }
 
-  async function recordSale() {
-    setMsg("");
-    try {
-      const res = await apiFetch<{ discount_amount: number; net_revenue: number }>("/sales", {
-        method: "POST",
-        body: JSON.stringify({
-          shop_id: saleStore,
-          product_variant_id: variantId,
-          quantity: saleQty,
-          sale_price: salePrice,
-          payment_method: payment,
-        }),
-      });
-      setMsg(`Sale recorded — net KES ${res.net_revenue?.toLocaleString() ?? 0}`);
-      load();
-      onUpdated();
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Sale failed");
-    }
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
       <div
@@ -237,8 +210,8 @@ export function ProductDetailPanel({
               <div key={s.store_id} className="flex justify-between border-b border-[var(--shadow-dark)]/20 py-2 text-sm last:border-0">
                 <span>{s.store_name}</span>
                 <span>
-                  Open <strong>{s.opening_stock}</strong> · Sold {s.units_sold_today} · Close{" "}
-                  <strong className="accent-text">{s.closing_stock}</strong>
+                  Opening <strong>{s.opening_stock}</strong> · On hand{" "}
+                  <strong className="accent-text">{s.quantity}</strong>
                 </span>
               </div>
             ))}
@@ -298,37 +271,6 @@ export function ProductDetailPanel({
               <input type="number" min={1} value={transferQty} onChange={(e) => setTransferQty(Number(e.target.value))} className="neu-inset w-full px-3 py-2 text-sm" />
               <button type="button" onClick={transferStock} className="neu-btn w-full py-2 text-sm accent-text">
                 Move stock
-              </button>
-            </div>
-          )}
-
-          {section === "sale" && (
-            <div className="space-y-3">
-              <select value={saleStore} onChange={(e) => setSaleStore(e.target.value)} className="neu-inset w-full px-3 py-2 text-sm">
-                {shops.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-              <p className="text-xs text-[var(--muted)]">List: KES {basePrice.toLocaleString()}</p>
-              <input type="number" min={0} value={salePrice} onChange={(e) => setSalePrice(Number(e.target.value))} className="neu-inset w-full px-3 py-2 text-sm" placeholder="Sale price" />
-              <input type="number" min={1} value={saleQty} onChange={(e) => setSaleQty(Number(e.target.value))} className="neu-inset w-full px-3 py-2 text-sm" />
-              <div className="flex gap-2">
-                {(["cash", "mpesa", "card"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setPayment(m)}
-                    className={`neu-btn flex-1 py-2 text-xs capitalize ${payment === m ? "active accent-text" : ""}`}
-                  >
-                    {m === "mpesa" ? "M-Pesa" : m}
-                  </button>
-                ))}
-              </div>
-              {discountPreview > 0 && (
-                <p className="text-xs accent-text">Discount: KES {discountPreview.toLocaleString()}</p>
-              )}
-              <button type="button" onClick={recordSale} className="neu-btn w-full py-2 text-sm accent-text">
-                Record sale
               </button>
             </div>
           )}

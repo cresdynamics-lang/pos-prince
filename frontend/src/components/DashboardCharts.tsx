@@ -46,15 +46,15 @@ export function SummaryCards({
   const cards =
     variant === "staff"
       ? [
-          { label: "Units sold today", value: String(summary.sales_today), sub: "items sold at your store" },
-          { label: "Orders today", value: String(summary.orders_today), sub: "completed transactions" },
+          { label: "Units sold today", value: String(summary.sales_today), sub: "items you sold" },
+          { label: "Orders today", value: String(summary.orders_today), sub: "your transactions" },
           {
             label: "Avg units per order",
             value:
               summary.orders_today > 0
                 ? (summary.sales_today / summary.orders_today).toFixed(1)
                 : "0",
-            sub: "sales activity",
+            sub: "your sales activity",
           },
         ]
       : [

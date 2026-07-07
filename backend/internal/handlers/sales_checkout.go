@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -182,6 +183,9 @@ func (h *Handler) CheckoutSale(c *gin.Context) {
 		"net_total":           netTotal,
 		"items":               lineResults,
 	})
+	h.logAction(c, &sellingShopID, "sale.checkout", "order", orderID.String(),
+		fmt.Sprintf("POS sale %s (%d items, %s)", kes(netTotal), len(req.Items), req.PaymentMethod),
+		map[string]interface{}{"net_total": netTotal, "items": len(req.Items), "payment": req.PaymentMethod})
 }
 
 func deductInventoryForSale(ctx context.Context, tx pgx.Tx, sellingShopID, inventoryShopID, variantID uuid.UUID, soldQty, currentQty int) (int, error) {

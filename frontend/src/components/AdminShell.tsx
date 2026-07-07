@@ -9,22 +9,12 @@ import {
   canAccessPath,
   clearSession,
   getUser,
-  hasAnyPermission,
   hasPermission,
+  isDirector,
   PERMS,
   type AuthUser,
 } from "@/lib/auth";
 import { useStore } from "@/lib/store-context";
-
-function canAccessExpenses(user: AuthUser) {
-  return hasAnyPermission(user, [
-    PERMS.finance,
-    PERMS.financeEdit,
-    PERMS.revenue,
-    PERMS.sales,
-    PERMS.salesCreate,
-  ]);
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
@@ -44,7 +34,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     }
     setUser(u);
     if (pathname.startsWith("/admin") && !canAccessPath(u, pathname)) {
-      const fallback = NAV_ITEMS.find((item) => hasPermission(u, item.permission));
+      const fallback = NAV_ITEMS.find(
+        (item) => item.href !== "/pos" && canAccessPath(u, item.href),
+      );
       router.replace(fallback?.href ?? "/login");
     }
   }, [router, pathname]);
@@ -57,11 +49,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const mainNav = NAV_ITEMS.filter(
-    (item) => item.href !== "/pos" && hasPermission(user, item.permission),
-  );
+  const mainNav = NAV_ITEMS.filter((item) => {
+    if (item.href === "/pos") return false;
+    if (item.href === "/admin/notifications" && !isDirector(user)) return false;
+    if ((item.href === "/admin/revenue" || item.href === "/admin/finance") && !isDirector(user)) {
+      return false;
+    }
+    return hasPermission(user, item.permission);
+  });
   const posNav = NAV_ITEMS.filter((item) => item.href === "/pos" && hasPermission(user, item.permission));
-  const showExpenses = canAccessExpenses(user);
+  const showExpenses = isDirector(user);
   const lockedStore = Boolean(user.shop_id && (user.role === "shop_manager" || user.role === "cashier"));
 
   return (

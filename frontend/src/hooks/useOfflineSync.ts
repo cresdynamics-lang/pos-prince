@@ -9,9 +9,11 @@ export function useOfflineSync() {
   const [pending, setPending] = useState(0);
   const [syncMsg, setSyncMsg] = useState("");
 
+  const refreshPending = () => setPending(getOfflineQueue().length);
+
   useEffect(() => {
     setOnline(isOnline());
-    setPending(getOfflineQueue().length);
+    refreshPending();
 
     async function sync() {
       if (!isOnline()) return;
@@ -42,5 +44,5 @@ export function useOfflineSync() {
     };
   }, []);
 
-  return { online, pending, syncMsg, clearMsg: () => setSyncMsg("") };
+  return { online, pending, syncMsg, clearMsg: () => setSyncMsg(""), refreshPending };
 }

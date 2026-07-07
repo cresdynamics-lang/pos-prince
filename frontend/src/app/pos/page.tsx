@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { PosView } from "@/components/PosViews";
-import { RequireAuth } from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/auth";
 import { getCachedCatalog } from "@/lib/offline";
 import { FALLBACK_CATEGORIES, type Category } from "@/lib/catalog";
@@ -19,15 +18,13 @@ export default function PosPage() {
       .catch(() => setCategories((prev) => prev ?? cached ?? FALLBACK_CATEGORIES));
   }, []);
 
-  return (
-    <RequireAuth>
-      {!categories ? (
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="neu-flat px-8 py-6 text-sm text-[var(--muted)]">Loading…</div>
-        </div>
-      ) : (
-        <PosView categories={categories} />
-      )}
-    </RequireAuth>
-  );
+  if (!categories) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="neu-flat px-8 py-6 text-sm text-[var(--muted)]">Loading POS…</div>
+      </div>
+    );
+  }
+
+  return <PosView categories={categories} />;
 }

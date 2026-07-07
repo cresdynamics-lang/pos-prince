@@ -11,7 +11,8 @@ import {
 } from "@/components/DashboardCharts";
 import { ExpenseSidePanel } from "@/components/admin/ExpenseSidePanel";
 import { GrandTotalByStore } from "@/components/admin/GrandTotalByStore";
-import { apiFetch, getUser, isStaffUser } from "@/lib/auth";
+import { StaffTodaySales, type TodaySaleRow } from "@/components/admin/StaffTodaySales";
+import { apiFetch, getUser, isDirector, isStaffUser } from "@/lib/auth";
 import { useStore, useStoreApiPath } from "@/lib/store-context";
 
 type StoreToday = {
@@ -25,10 +26,14 @@ type StoreToday = {
   net_today: number;
 };
 
-type DashboardResponse = DashboardData & { by_store?: StoreToday[] };
+type DashboardResponse = DashboardData & {
+  by_store?: StoreToday[];
+  today_sales?: TodaySaleRow[];
+  personal_view?: boolean;
+};
 
 export function DashboardPageClient() {
-  const { isAllStores, selectedStore } = useStore();
+  const { isAllStores } = useStore();
   const apiPath = useStoreApiPath("/analytics/dashboard");
   const [data, setData] = useState<DashboardResponse>(EMPTY_DASHBOARD);
   const staffView = isStaffUser(getUser());
@@ -44,10 +49,9 @@ export function DashboardPageClient() {
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
       <div className="min-w-0 space-y-6">
-        {staffView && selectedStore && (
+        {staffView && (
           <p className="text-sm text-[var(--muted)]">
-            Today&apos;s sales at <strong className="accent-text">{selectedStore.name}</strong> — units and orders
-            only.
+            Your sales today — products sold and transactions you recorded in POS.
           </p>
         )}
 
@@ -55,6 +59,7 @@ export function DashboardPageClient() {
 
         {staffView ? (
           <>
+            <StaffTodaySales sales={data.today_sales ?? []} />
             <TopProductsBar data={data.top_products} />
             <CategoryPieChart data={data.sales_by_category} hideAmounts />
           </>
@@ -72,7 +77,7 @@ export function DashboardPageClient() {
         )}
       </div>
 
-      <ExpenseSidePanel onRecorded={loadDashboard} />
+      {isDirector(getUser()) && <ExpenseSidePanel onRecorded={loadDashboard} />}
     </div>
   );
 }

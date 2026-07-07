@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,6 +16,16 @@ type analyticsSummary struct {
 	DiscountToday     float64 `json:"discount_today"`
 	ProfitToday       float64 `json:"profit_today"`
 	OrdersToday       int     `json:"orders_today"`
+}
+
+type todaySaleRow struct {
+	ID              string    `json:"id"`
+	Product         string    `json:"product"`
+	VariantLabel    string    `json:"variant_label"`
+	Quantity        int       `json:"quantity"`
+	Total           float64   `json:"total"`
+	PaymentMethod   string    `json:"payment_method"`
+	TransactionTime time.Time `json:"transaction_time"`
 }
 
 type storeTodayStats struct {
@@ -47,29 +58,38 @@ func shopIDFromQuery(c *gin.Context) string {
 }
 
 func (h *Handler) DashboardAnalytics(c *gin.Context) {
-	shopID := shopIDFromQuery(c)
-	summary, _ := h.queryTodaySummary(c.Request.Context(), shopID)
-	line, pie, movers := h.queryCharts(c.Request.Context(), shopID)
-	byStore := h.queryStoreTodayStats(c.Request.Context())
+	sc := scopeFromRequest(c)
+	summary, _ := h.queryTodaySummary(c.Request.Context(), sc)
+	line, pie, movers := h.queryCharts(c.Request.Context(), sc)
 
-	c.JSON(http.StatusOK, gin.H{
+	payload := gin.H{
 		"summary":           summary,
 		"revenue_trend":     line,
 		"sales_by_category": pie,
 		"top_products":      movers,
-		"by_store":          byStore,
-		"shop_id":           shopID,
-	})
+		"shop_id":           sc.ShopID,
+		"personal_view":     !sc.Director,
+	}
+
+	if sc.Director {
+		payload["by_store"] = h.queryStoreTodayStats(c.Request.Context())
+	} else {
+		summary.RevenueToday = 0
+		summary.GrossRevenueToday = 0
+		summary.DiscountToday = 0
+		summary.ProfitToday = 0
+		payload["summary"] = summary
+		payload["revenue_trend"] = []chartPoint{}
+		payload["today_sales"] = h.queryTodaySales(c.Request.Context(), sc)
+	}
+
+	c.JSON(http.StatusOK, payload)
 }
 
-func (h *Handler) queryTodaySummary(ctx context.Context, shopID string) (analyticsSummary, error) {
+func (h *Handler) queryTodaySummary(ctx context.Context, sc analyticsScope) (analyticsSummary, error) {
 	var s analyticsSummary
-	shopClause := ""
-	var args []interface{}
-	if shopID != "" {
-		shopClause = " AND shop_id = $1"
-		args = append(args, shopID)
-	}
+	stClause, orderClause, args := txnFilters(sc, "st")
+	bareClause, _, _ := txnFilters(sc, "")
 
 	q := fmt.Sprintf(`
 		SELECT
@@ -98,7 +118,7 @@ func (h *Handler) queryTodaySummary(ctx context.Context, shopID string) (analyti
 		JOIN product_variants pv ON pv.id = st.product_variant_id
 		JOIN products p ON p.id = pv.product_id
 		WHERE st.transaction_time::date = CURRENT_DATE%s
-	`, shopClause, shopClause, shopClause, shopClause, shopClause, shopClause)
+	`, orderClause, bareClause, orderClause, orderClause, bareClause, stClause)
 
 	err := h.DB.QueryRow(ctx, q, args...).Scan(
 		&s.SalesToday, &s.RevenueToday, &s.GrossRevenueToday, &s.DiscountToday, &s.ProfitToday, &s.OrdersToday,
@@ -106,13 +126,37 @@ func (h *Handler) queryTodaySummary(ctx context.Context, shopID string) (analyti
 	return s, err
 }
 
-func (h *Handler) queryCharts(ctx context.Context, shopID string) ([]chartPoint, []chartPoint, []chartPoint) {
-	shopJoin := ""
-	args := []interface{}{}
-	if shopID != "" {
-		shopJoin = " AND st.shop_id = $1"
-		args = append(args, shopID)
+func (h *Handler) queryTodaySales(ctx context.Context, sc analyticsScope) []todaySaleRow {
+	out := []todaySaleRow{}
+	stClause, _, args := txnFilters(sc, "st")
+	rows, err := h.DB.Query(ctx, fmt.Sprintf(`
+		SELECT st.id::text, p.name, pv.size, pv.color, pv.material,
+		       st.quantity, st.sale_price * st.quantity, st.payment_method::text, st.transaction_time
+		FROM sales_transactions st
+		JOIN product_variants pv ON pv.id = st.product_variant_id
+		JOIN products p ON p.id = pv.product_id
+		WHERE st.transaction_time::date = CURRENT_DATE%s
+		ORDER BY st.transaction_time DESC
+		LIMIT 100
+	`, stClause), args...)
+	if err != nil {
+		return out
 	}
+	defer rows.Close()
+	for rows.Next() {
+		var r todaySaleRow
+		var size, color, material *string
+		if rows.Scan(&r.ID, &r.Product, &size, &color, &material, &r.Quantity, &r.Total, &r.PaymentMethod, &r.TransactionTime) == nil {
+			r.VariantLabel = variantLabel(size, color, material)
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func (h *Handler) queryCharts(ctx context.Context, sc analyticsScope) ([]chartPoint, []chartPoint, []chartPoint) {
+	stClause, _, args := txnFilters(sc, "st")
+	shopJoin := stClause
 
 	line := []chartPoint{}
 	rows, err := h.DB.Query(ctx, fmt.Sprintf(`
@@ -220,9 +264,14 @@ func (h *Handler) monthProfitQuery(shopID string) string {
 }
 
 func (h *Handler) RevenueAnalytics(c *gin.Context) {
-	shopID := shopIDFromQuery(c)
-	summary, _ := h.queryTodaySummary(c.Request.Context(), shopID)
-	line, _, _ := h.queryCharts(c.Request.Context(), shopID)
+	sc := scopeFromRequest(c)
+	if !sc.Director {
+		c.JSON(http.StatusForbidden, gin.H{"error": "directors only"})
+		return
+	}
+	shopID := sc.ShopID
+	summary, _ := h.queryTodaySummary(c.Request.Context(), sc)
+	line, _, _ := h.queryCharts(c.Request.Context(), sc)
 	byStore := h.queryByStoreMonth(c.Request.Context(), shopID)
 	monthlyNet, monthlyDiscount := h.queryMonthlyRevenue(c.Request.Context(), shopID)
 	finance := h.queryFinanceSnapshot(c.Request.Context(), shopID)

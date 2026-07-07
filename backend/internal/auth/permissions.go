@@ -33,10 +33,10 @@ var roleDefaults = map[models.UserRole][]string{
 	},
 	models.RoleShopManager: {
 		PermDashboard, PermAnalytics, PermInventory, PermInventoryE,
-		PermStores, PermSales, PermSalesC, PermRevenue, PermFinance, PermFinanceE, PermPOS,
+		PermStores, PermSales, PermSalesC, PermPOS,
 	},
 	models.RoleCashier: {
-		PermDashboard, PermInventory, PermSales, PermSalesC, PermPOS,
+		PermDashboard, PermAnalytics, PermInventory, PermSales, PermSalesC, PermPOS,
 	},
 }
 

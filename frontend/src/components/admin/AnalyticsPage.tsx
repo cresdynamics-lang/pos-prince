@@ -10,6 +10,7 @@ import {
   type DashboardData,
 } from "@/components/DashboardCharts";
 import { GrandTotalByStore } from "@/components/admin/GrandTotalByStore";
+import { StaffTodaySales, type TodaySaleRow } from "@/components/admin/StaffTodaySales";
 import { apiFetch, getUser, isStaffUser } from "@/lib/auth";
 import { useStore, useStoreApiPath } from "@/lib/store-context";
 
@@ -24,7 +25,10 @@ type StoreToday = {
   net_today: number;
 };
 
-type AnalyticsResponse = DashboardData & { by_store?: StoreToday[] };
+type AnalyticsResponse = DashboardData & {
+  by_store?: StoreToday[];
+  today_sales?: TodaySaleRow[];
+};
 
 export function AnalyticsPageClient() {
   const { isAllStores } = useStore();
@@ -44,12 +48,13 @@ export function AnalyticsPageClient() {
     <div className="space-y-6">
       <p className="text-sm text-[var(--muted)]">
         {staffView
-          ? "Sales performance — units sold and moving products."
+          ? "Your sales performance — products you sold today and what is moving."
           : "Deep dive into store performance and category mix."}
       </p>
       <SummaryCards summary={data.summary} variant={staffView ? "staff" : "director"} />
       {staffView ? (
         <>
+          <StaffTodaySales sales={data.today_sales ?? []} />
           <TopProductsBar data={data.top_products} />
           <CategoryPieChart data={data.sales_by_category} hideAmounts />
         </>

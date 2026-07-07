@@ -16,8 +16,24 @@ const ROLE_DEFAULTS: Record<UserRole, string[]> = {
   director: ALL_PERMISSIONS.map((p) => p.key).filter(
     (k) => k !== "users.view" && k !== "users.create" && k !== "users.edit"
   ),
-  shop_manager: ALL_PERMISSIONS.filter((p) => !p.key.startsWith("users")).map((p) => p.key),
-  cashier: ["dashboard.view", "inventory.view", "sales.view", "sales.create", "pos.access"],
+  shop_manager: [
+    "dashboard.view",
+    "analytics.view",
+    "inventory.view",
+    "inventory.edit",
+    "stores.view",
+    "sales.view",
+    "sales.create",
+    "pos.access",
+  ],
+  cashier: [
+    "dashboard.view",
+    "analytics.view",
+    "inventory.view",
+    "sales.view",
+    "sales.create",
+    "pos.access",
+  ],
 };
 
 const USER_MGMT = new Set(["users.view", "users.create", "users.edit"]);
