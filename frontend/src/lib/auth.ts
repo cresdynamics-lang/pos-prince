@@ -25,7 +25,41 @@ export function isSuperAdmin(user: AuthUser | null): boolean {
 
 const TOKEN_KEY = "prince_pos_token";
 const USER_KEY = "prince_pos_user";
+const LAST_ACTIVITY_KEY = "prince_pos_last_activity";
 const SESSION_COOKIE = "prince_pos_session";
+
+const DEFAULT_IDLE_LOCK_MS = 5 * 60 * 1000;
+
+export function getIdleLockMs(): number {
+  const raw = process.env.NEXT_PUBLIC_IDLE_LOCK_MS;
+  if (raw) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 60_000) return n;
+  }
+  return DEFAULT_IDLE_LOCK_MS;
+}
+
+export function recordActivity() {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+}
+
+export function isIdleExpired(): boolean {
+  if (typeof window === "undefined") return false;
+  if (!localStorage.getItem(TOKEN_KEY)) return false;
+  const raw = localStorage.getItem(LAST_ACTIVITY_KEY);
+  if (!raw) return false;
+  return Date.now() - Number(raw) > getIdleLockMs();
+}
+
+export function lockSession(reason: "idle" | "expired" = "idle") {
+  if (typeof window === "undefined") return;
+  const path = window.location.pathname + window.location.search;
+  clearSession();
+  const qs = new URLSearchParams({ reason });
+  if (path && path !== "/login") qs.set("next", path);
+  window.location.href = `/login?${qs.toString()}`;
+}
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -67,16 +101,22 @@ export function setSession(token: string, user: AuthUser) {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   setSessionCookie();
+  recordActivity();
 }
 
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(LAST_ACTIVITY_KEY);
   clearSessionCookie();
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
+  if (token && typeof window !== "undefined" && isIdleExpired()) {
+    lockSession("idle");
+    throw new Error("Session locked due to inactivity");
+  }
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(init.headers as Record<string, string>),
@@ -85,9 +125,11 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (res.status === 401 && typeof window !== "undefined") {
-    clearSession();
-    window.location.href = "/login";
+    lockSession("expired");
     throw new Error("Session expired");
+  }
+  if (res.ok && token && typeof window !== "undefined") {
+    recordActivity();
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BRAND, getUser, login, syncSessionCookie } from "@/lib/auth";
+import { BRAND, getIdleLockMs, getUser, login, syncSessionCookie } from "@/lib/auth";
 import { InstallPwaBanner } from "@/components/PwaRegister";
 
 export default function LoginForm() {
@@ -12,6 +12,10 @@ export default function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const lockReason = searchParams.get("reason");
+  const idleLocked = lockReason === "idle";
+  const sessionExpired = lockReason === "expired";
+  const idleMinutes = Math.round(getIdleLockMs() / 60_000);
 
   useEffect(() => {
     syncSessionCookie();
@@ -45,6 +49,16 @@ export default function LoginForm() {
       <div className="neu-flat w-full max-w-md p-8">
         <h1 className="text-2xl font-semibold accent-text">{BRAND.name}</h1>
         <p className="text-sm text-[var(--muted)]">Sign in to continue</p>
+        {idleLocked && (
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Session locked after {idleMinutes} minute{idleMinutes === 1 ? "" : "s"} of inactivity. Sign in again to continue.
+          </p>
+        )}
+        {sessionExpired && (
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Your session has expired. Sign in again to continue.
+          </p>
+        )}
         <p className="mt-2 text-xs text-[var(--muted)]">
           Access is restricted to authorized staff only.{" "}
           <a href="/" className="underline underline-offset-2">

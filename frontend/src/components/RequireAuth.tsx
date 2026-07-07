@@ -2,11 +2,13 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { clearSession, getToken, getUser } from "@/lib/auth";
+import { useIdleLock } from "@/hooks/useIdleLock";
+import { clearSession, getToken, getUser, isIdleExpired, lockSession } from "@/lib/auth";
 
-/** Validates session on admin routes; clears stale local state if cookie missing. */
+/** Validates session on protected routes; locks after idle timeout. */
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  useIdleLock();
 
   useEffect(() => {
     const user = getUser();
@@ -14,6 +16,10 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     if (!user || !token) {
       clearSession();
       router.replace("/login");
+      return;
+    }
+    if (isIdleExpired()) {
+      lockSession("idle");
     }
   }, [router]);
 
