@@ -1,9 +1,9 @@
 {
-  "id": "/pos",
+  "id": "/",
   "name": "Prince Esquire POS",
   "short_name": "PE POS",
   "description": "Prince Esquire point of sale — works offline and syncs when online",
-  "start_url": "/pos",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],

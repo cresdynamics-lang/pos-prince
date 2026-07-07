@@ -1,6 +1,6 @@
-const CACHE = "prince-pos-shell-v2";
+const CACHE = "prince-pos-shell-v3";
 const SHELL = [
-  "/pos",
+  "/",
   "/login",
   "/manifest.webmanifest",
   "/icons/icon-192.png",

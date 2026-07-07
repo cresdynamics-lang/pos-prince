@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HomeActions } from "@/components/HomeActions";
 import { BRAND } from "@/lib/auth";
 
 const features = [
@@ -24,9 +25,7 @@ export default function LandingPage() {
           <p className="text-lg font-semibold accent-text">{BRAND.name}</p>
           <p className="text-xs text-[var(--muted)]">Point of Sale</p>
         </div>
-        <Link href="/login" className="neu-btn px-5 py-2.5 text-sm font-medium accent-text">
-          Staff sign in
-        </Link>
+        <HomeActions compact />
       </header>
 
       <main className="mx-auto max-w-6xl px-6 pb-16 pt-8">
@@ -43,13 +42,8 @@ export default function LandingPage() {
               reporting across fashion categories — from polos and shirts to shoes and
               accessories.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                href="/login"
-                className="neu-btn px-6 py-3 text-sm font-semibold accent-text"
-              >
-                Sign in to dashboard
-              </Link>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <HomeActions />
               <a
                 href={BRAND.web}
                 target="_blank"
