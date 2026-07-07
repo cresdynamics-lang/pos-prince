@@ -108,6 +108,10 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
+log "Ensuring HTTPS..."
+certbot --nginx -d "${DOMAIN_WEB}" --non-interactive --agree-tos -m prince-esquire@gmail.com --redirect 2>/dev/null || \
+  certbot --nginx -d "${DOMAIN_WEB}" --non-interactive --agree-tos -m prince-esquire@gmail.com --redirect || true
+
 log "Health check..."
 curl -fsS "http://127.0.0.1:8080/api/health" && echo ""
 curl -fsS -H "Host: ${DOMAIN_WEB}" "http://127.0.0.1/api/health" && echo "" || curl -fsS "http://127.0.0.1/api/health" && echo ""
