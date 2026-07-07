@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { PwaRegister } from "@/components/PwaRegister";
+import { InstallPwaBanner } from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
   title: "Prince Esquire POS",
@@ -19,7 +19,7 @@ export const viewport: Viewport = {
 export default function PosLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <PwaRegister />
+      <InstallPwaBanner />
       {children}
     </>
   );

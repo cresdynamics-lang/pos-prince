@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BRAND, getUser, login } from "@/lib/auth";
+import { InstallPwaBanner } from "@/components/PwaRegister";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -34,7 +35,10 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
+    <div className="flex min-h-screen flex-col items-center justify-center p-6">
+      <div className="mb-4 w-full max-w-md">
+        <InstallPwaBanner />
+      </div>
       <div className="neu-flat w-full max-w-md p-8">
         <h1 className="text-2xl font-semibold accent-text">{BRAND.name}</h1>
         <p className="text-sm text-[var(--muted)]">Sign in to continue</p>

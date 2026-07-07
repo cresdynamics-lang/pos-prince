@@ -1,5 +1,11 @@
-const CACHE = "prince-pos-shell-v1";
-const SHELL = ["/pos", "/login", "/manifest.webmanifest", "/icons/icon-192.svg", "/icons/icon-512.svg"];
+const CACHE = "prince-pos-shell-v2";
+const SHELL = [
+  "/pos",
+  "/login",
+  "/manifest.webmanifest",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
