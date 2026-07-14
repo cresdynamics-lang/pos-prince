@@ -1,7 +1,6 @@
-const CACHE = "prince-pos-shell-v3";
+const CACHE = "prince-pos-shell-v4";
 const SHELL = [
   "/",
-  "/login",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
@@ -28,7 +27,25 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
+
+  // Never intercept API — login must hit the live server.
   if (url.pathname.startsWith("/api/")) return;
+
+  // Network-first for navigations / login so users don't get a stale offline page.
+  if (request.mode === "navigate" || url.pathname === "/login" || url.pathname.startsWith("/login")) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request)),
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(request).then((cached) => {

@@ -1,6 +1,6 @@
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ??
-  (typeof window !== "undefined" ? "/api/v1" : "http://localhost:8080/api/v1");
+  (typeof window !== "undefined" ? "/api/v1" : "/api/v1");
 
 export type UserRole = "director" | "shop_manager" | "cashier";
 
