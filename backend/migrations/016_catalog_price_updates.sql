@@ -1,9 +1,6 @@
--- Client price corrections (Jul 2026): boots/shoes 7k, sweaters/dresses 5.5k, t-shirts 3k,
+-- Client price corrections (Jul 2026): boots/shoes 7k, sweaters 5.5k, t-shirts 3k,
 -- track suits 8k, trousers ~3k. Suits stay 13k / 15k.
-
-INSERT INTO categories (name, slug, parent_id, variant_types)
-SELECT 'Dresses', 'dresses', NULL, '["size","color"]'
-WHERE NOT EXISTS (SELECT 1 FROM categories WHERE slug = 'dresses');
+-- Note: Dresses were removed in 017_remove_dresses.sql — do not re-add here.
 
 UPDATE products p
 SET base_price = v.list_price,
@@ -19,7 +16,6 @@ JOIN (VALUES
     ('two-piece', 13000, 5850),
     ('three-piece', 15000, 6750),
     ('sweaters', 5500, 2500),
-    ('dresses', 5500, 2500),
     ('round-neck-t-shirts', 3000, 1350),
     ('v-neck-t-shirts', 3000, 1350),
     ('sweat-shirts', 3000, 1350),

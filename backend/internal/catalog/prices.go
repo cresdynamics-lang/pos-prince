@@ -51,7 +51,6 @@ var listPrices = map[string]float64{
 	"linen-shorts":        6500,
 	"ties":                3500,
 	"sweaters":            5500,
-	"dresses":             5500,
 }
 
 var costPrices = map[string]float64{
@@ -78,6 +77,5 @@ var costPrices = map[string]float64{
 	"fedora-hats":         1100,
 	"belts":               900,
 	"sweaters":            2500,
-	"dresses":             2500,
 	"track-suits":         3600,
 }
