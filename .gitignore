@@ -1,5 +1,6 @@
 # Binaries
 backend/server
+backend/bin/
 *.exe
 
 # Environment

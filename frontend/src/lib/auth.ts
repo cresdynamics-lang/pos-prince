@@ -84,13 +84,38 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  let res: Response;
+  try {
+    const controller = new AbortController();
+    const timeoutMs = isLogin ? 20_000 : 30_000;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers,
+        signal: init.signal ?? controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("Server is taking too long. Check your connection and try again.");
+    }
+    throw new Error(
+      "Cannot reach the server (Failed to fetch). Check internet, refresh the page, then try again.",
+    );
+  }
+
   if (res.status === 401 && typeof window !== "undefined" && !isLogin) {
     clearSession();
     if (!window.location.pathname.startsWith("/login")) {
       window.location.href = "/login";
     }
     throw new Error("Session expired");
+  }
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    throw new Error("POS server is temporarily unavailable. Wait a moment and try again.");
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

@@ -38,6 +38,7 @@ rsync -a --delete \
   --exclude .next \
   --exclude .git \
   --exclude backend/.env \
+  --exclude backend/bin \
   --exclude deploy/.env \
   "${APP_SRC}/" "${APP_DIR}/"
 chown -R prince:prince "${APP_DIR}"
