@@ -7,6 +7,7 @@ import { ExpenseSidePanel } from "@/components/admin/ExpenseSidePanel";
 import { GrandTotalByStore } from "@/components/admin/GrandTotalByStore";
 import { StoreScopeBanner } from "@/components/admin/StoreScopeBanner";
 import { apiFetch } from "@/lib/auth";
+import { downloadCsv, rowsToCsv } from "@/lib/csv";
 import { useStore, useStoreApiPath } from "@/lib/store-context";
 
 type StoreRevenue = {
@@ -71,10 +72,73 @@ export function RevenuePageClient() {
     load();
   }, [load]);
 
+  function downloadRevenueCsv() {
+    const scope = isAllStores ? "all-stores" : selectedStore?.name?.replace(/\s+/g, "-") ?? "store";
+    const summaryHeaders = [
+      "Scope",
+      "Revenue today",
+      "Gross today",
+      "Discounts today",
+      "Expenses today",
+      "Net today",
+      "Monthly net revenue",
+      "Monthly discounts",
+      "Monthly expenses",
+      "Net month",
+    ];
+    const summaryRows = [
+      [
+        isAllStores ? "All stores" : selectedStore?.name ?? "",
+        data.summary.revenue_today ?? 0,
+        data.summary.gross_revenue_today ?? 0,
+        data.summary.discount_today ?? 0,
+        data.expenses_today ?? 0,
+        data.net_today ?? 0,
+        data.monthly_total ?? 0,
+        data.monthly_discount ?? 0,
+        data.expenses_month ?? 0,
+        data.net_month ?? 0,
+      ],
+    ];
+    let csv = rowsToCsv(summaryHeaders, summaryRows);
+    if ((data.by_store ?? []).length > 0) {
+      csv +=
+        "\n\n" +
+        rowsToCsv(
+          ["Store", "Gross", "Discounts", "Net revenue", "Units"],
+          (data.by_store ?? []).map((s) => [
+            s.store_name,
+            s.gross_revenue,
+            s.discounts,
+            s.net_revenue,
+            s.units_sold,
+          ]),
+        );
+    }
+    if ((data.revenue_trend ?? []).length > 0) {
+      csv +=
+        "\n\n" +
+        rowsToCsv(
+          ["Day", "Revenue"],
+          (data.revenue_trend ?? []).map((p) => [p.label, p.value]),
+        );
+    }
+    downloadCsv(`revenue-${scope}.csv`, csv);
+  }
+
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
       <div className="min-w-0 space-y-6">
-        <StoreScopeBanner />
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <StoreScopeBanner />
+          <button
+            type="button"
+            onClick={downloadRevenueCsv}
+            className="neu-btn shrink-0 px-4 py-2 text-sm accent-text"
+          >
+            Download revenue CSV
+          </button>
+        </div>
 
         {isAllStores ? (
           <>

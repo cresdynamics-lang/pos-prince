@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StoreScopeBanner } from "@/components/admin/StoreScopeBanner";
 import { apiFetch, getUser, isDirector } from "@/lib/auth";
+import { downloadCsv, rowsToCsv } from "@/lib/csv";
 import { useStore, useStoreApiPath } from "@/lib/store-context";
 
 type ReportSummary = {
@@ -118,6 +119,92 @@ export function ReportsPageClient() {
   }
 
   const s = data?.summary;
+  const storeLabel = isAllStores ? "all-stores" : selectedStore?.name?.replace(/\s+/g, "-") ?? "store";
+
+  function downloadSales() {
+    if (!data) return;
+    const headers = [
+      "Time",
+      "Store",
+      "Product",
+      "Variant",
+      "Qty",
+      "List price",
+      "Sale price",
+      "Discount",
+      "Net",
+      "Payment",
+      "Cashier",
+    ];
+    const rows = data.sales.map((r) => [
+      new Date(r.transaction_time).toLocaleString(),
+      r.shop_name,
+      r.product,
+      r.variant_label,
+      r.quantity,
+      r.list_price,
+      r.sale_price,
+      r.discount_amount,
+      r.total,
+      r.payment_method,
+      r.cashier,
+    ]);
+    downloadCsv(`sales-${date}-${storeLabel}.csv`, rowsToCsv(headers, rows));
+  }
+
+  function downloadRevenue() {
+    if (!data?.summary) return;
+    const sum = data.summary;
+    const headers = ["Date", "Store scope", "Orders", "Units sold", "Gross revenue", "Discounts", "Net revenue"];
+    const rows = [
+      [
+        date,
+        isAllStores ? "All stores" : selectedStore?.name ?? "",
+        sum.orders,
+        sum.units_sold,
+        sum.gross_revenue,
+        sum.discount_total,
+        sum.net_revenue,
+      ],
+    ];
+    // Also include line-level net rollup from sales for audit
+    const saleHeaders = ["Product", "Qty", "Net", "Discount"];
+    const saleRows = data.sales.map((r) => [r.product, r.quantity, r.total, r.discount_amount]);
+    const csv =
+      rowsToCsv(headers, rows) +
+      "\n\n" +
+      rowsToCsv(saleHeaders, saleRows);
+    downloadCsv(`revenue-${date}-${storeLabel}.csv`, csv);
+  }
+
+  function downloadStock() {
+    if (!data) return;
+    const headers = [
+      "Store",
+      "Product",
+      "Variant",
+      "SKU",
+      "Opening",
+      "Sold",
+      "Transfer in",
+      "Transfer out",
+      "Closing",
+      "Live on hand",
+    ];
+    const rows = data.stock.map((r) => [
+      r.shop_name,
+      r.product,
+      r.variant_label,
+      r.sku,
+      r.opening_stock,
+      r.units_sold,
+      r.units_transferred_in,
+      r.units_transferred_out,
+      r.closing_stock,
+      r.live_quantity ?? "",
+    ]);
+    downloadCsv(`stock-${date}-${storeLabel}.csv`, rowsToCsv(headers, rows));
+  }
 
   return (
     <div className="space-y-6">
@@ -134,6 +221,7 @@ export function ReportsPageClient() {
           <h2 className="text-sm font-semibold accent-text">Daily reports</h2>
           <p className="text-xs text-[var(--muted)]">
             Sales made, products sold, and stock (opening − sold → closing). History kept per day.
+            Download CSV for sales and revenue anytime.
             {data?.is_today && (
               <span className="ml-1 accent-text">
                 Live · refreshes every 20s
@@ -155,6 +243,30 @@ export function ReportsPageClient() {
           </label>
           <button type="button" onClick={load} className="neu-btn px-3 py-2 text-xs accent-text">
             Refresh
+          </button>
+          <button
+            type="button"
+            onClick={downloadSales}
+            disabled={!data?.sales?.length}
+            className="neu-btn px-3 py-2 text-xs accent-text disabled:opacity-40"
+          >
+            Download sales
+          </button>
+          <button
+            type="button"
+            onClick={downloadRevenue}
+            disabled={!data?.summary}
+            className="neu-btn px-3 py-2 text-xs accent-text disabled:opacity-40"
+          >
+            Download revenue
+          </button>
+          <button
+            type="button"
+            onClick={downloadStock}
+            disabled={!data?.stock?.length}
+            className="neu-btn px-3 py-2 text-xs disabled:opacity-40"
+          >
+            Download stock
           </button>
           <Link href="/admin/inventory" className="neu-btn px-3 py-2 text-xs">
             Update stock

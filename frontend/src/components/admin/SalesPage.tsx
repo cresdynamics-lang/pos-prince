@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { StoreScopeBanner } from "@/components/admin/StoreScopeBanner";
-import { apiFetch, getUser, isStaffUser } from "@/lib/auth";
+import { apiFetch, getUser, isDirector, isStaffUser } from "@/lib/auth";
+import { downloadCsv, rowsToCsv } from "@/lib/csv";
 import { useStore, useStoreApiPath } from "@/lib/store-context";
 
 type Sale = {
@@ -32,6 +33,7 @@ export function SalesPageClient() {
 
   const me = getUser();
   const staffView = isStaffUser(me);
+  const director = isDirector(me);
 
   const loadSales = useCallback(() => {
     apiFetch<{ sales: Sale[] }>(apiPath)
@@ -43,20 +45,54 @@ export function SalesPageClient() {
     loadSales();
   }, [loadSales]);
 
-  const todaySales = sales.filter((s) => {
-    const d = new Date(s.transaction_time);
-    const now = new Date();
-    return d.toDateString() === now.toDateString();
-  });
+  const visibleSales = staffView
+    ? sales.filter((s) => {
+        const d = new Date(s.transaction_time);
+        const now = new Date();
+        const days = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
+        return days <= 14;
+      })
+    : sales;
 
-  const displaySales = staffView ? todaySales : sales;
+  function downloadSalesCsv() {
+    const headers = [
+      "Time",
+      "Store",
+      "Product",
+      "Variant",
+      "Cashier",
+      "Qty",
+      "List price",
+      "Sale price",
+      "Discount",
+      "Overall discount",
+      "Net",
+      "Payment",
+    ];
+    const rows = visibleSales.map((s) => [
+      new Date(s.transaction_time).toLocaleString(),
+      s.store_name || s.shop,
+      s.product,
+      s.variant_label,
+      s.cashier,
+      s.quantity,
+      s.list_price,
+      s.sale_price,
+      s.discount_amount,
+      s.overall_discount,
+      s.total,
+      s.payment_method,
+    ]);
+    const scope = isAllStores ? "all-stores" : selectedStore?.name?.replace(/\s+/g, "-") ?? "store";
+    downloadCsv(`sales-${scope}.csv`, rowsToCsv(headers, rows));
+  }
 
   return (
     <div className="space-y-4">
       <StoreScopeBanner
         hint={
           staffView
-            ? "Your personal sales for today at your assigned store."
+            ? "Your personal sales (last 14 days) at your assigned store."
             : isAllStores
               ? "Sales across all stores. Pick a store in the header to see one location only."
               : `Sales recorded at ${selectedStore?.name ?? "this store"}.`
@@ -66,14 +102,26 @@ export function SalesPageClient() {
       <div className="neu-flat flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <p className="text-sm text-[var(--muted)]">
           {staffView
-            ? "Your sales history for today. Record new sales in POS."
+            ? "Your recent sales. Record new sales in POS."
             : isAllStores
               ? "Sales history across all stores. New sales are recorded in POS."
-              : `Sales at ${selectedStore?.name ?? "selected store"}. New sales are recorded in POS.`}
+              : `Sales at ${selectedStore?.name ?? "selected store"}. Switch store in the header if this list looks incomplete.`}
         </p>
-        <Link href="/pos" className="neu-btn px-4 py-2 text-sm accent-text">
-          Open POS
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {director && (
+            <button
+              type="button"
+              onClick={downloadSalesCsv}
+              disabled={visibleSales.length === 0}
+              className="neu-btn px-4 py-2 text-sm accent-text disabled:opacity-40"
+            >
+              Download CSV
+            </button>
+          )}
+          <Link href="/pos" className="neu-btn px-4 py-2 text-sm accent-text">
+            Open POS
+          </Link>
+        </div>
       </div>
 
       <div className="neu-flat overflow-x-auto">
@@ -92,7 +140,7 @@ export function SalesPageClient() {
             </tr>
           </thead>
           <tbody>
-            {displaySales.map((s) => {
+            {visibleSales.map((s) => {
               const lineDisc = s.discount_amount ?? Math.max(0, (s.list_price - s.sale_price) * s.quantity);
               return (
               <tr key={s.id} className="border-b border-[var(--shadow-dark)]/20">
@@ -133,13 +181,13 @@ export function SalesPageClient() {
               </tr>
               );
             })}
-            {displaySales.length === 0 && (
+            {visibleSales.length === 0 && (
               <tr>
                 <td
                   colSpan={staffView ? 7 : isAllStores ? 9 : 8}
                   className="px-4 py-10 text-center text-[var(--muted)]"
                 >
-                  {staffView ? "No sales today yet." : "No sales found for this view."}
+                  {staffView ? "No sales in the last 14 days." : "No sales found for this view."}
                 </td>
               </tr>
             )}

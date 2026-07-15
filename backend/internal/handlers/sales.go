@@ -40,7 +40,7 @@ func (h *Handler) SalesList(c *gin.Context) {
 	shopFilter := sc.ShopID
 	query := `
 		SELECT st.id, st.order_id::text, p.name, pv.sku, pv.size, pv.color, pv.material,
-		       ss.name, st.shop_id::text, invs.name, st.inventory_shop_id::text,
+		       ss.name, st.shop_id::text, COALESCE(invs.name, ss.name), COALESCE(st.inventory_shop_id::text, st.shop_id::text),
 		       u.name, st.cashier_id::text,
 		       st.quantity, st.list_price, st.sale_price, st.discount_amount,
 		       COALESCE(so.overall_discount, 0), so.net_total,

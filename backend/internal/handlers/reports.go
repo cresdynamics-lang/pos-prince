@@ -83,7 +83,7 @@ func (h *Handler) DayReport(c *gin.Context) {
 	sales := []reportSaleRow{}
 	rows, err := h.DB.Query(c.Request.Context(), fmt.Sprintf(`
 		SELECT st.id::text, p.name, pv.size, pv.color, pv.material,
-		       s.name, COALESCE(u.full_name, u.email),
+		       s.name, COALESCE(u.name, u.email),
 		       st.quantity, st.list_price, st.sale_price, st.discount_amount,
 		       st.sale_price * st.quantity, st.payment_method::text, st.transaction_time
 		FROM sales_transactions st
@@ -95,7 +95,10 @@ func (h *Handler) DayReport(c *gin.Context) {
 		ORDER BY st.transaction_time DESC
 		LIMIT 500
 	`, shopClause), salesArgs...)
-	if err == nil {
+	if err != nil {
+		// keep sales empty but still return summary/stock
+		_ = err
+	} else {
 		defer rows.Close()
 		for rows.Next() {
 			var r reportSaleRow
