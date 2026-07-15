@@ -6,8 +6,7 @@ FROM categories WHERE slug = 'jackets'
 
 UPDATE categories
 SET name = 'Half Jacket',
-    variant_types = '["size","color","material"]'::jsonb,
-    updated_at = NOW()
+    variant_types = '["size","color","material"]'::jsonb
 WHERE slug = 'half-jackets';
 
 INSERT INTO categories (name, slug, parent_id, variant_types)
@@ -18,6 +17,5 @@ FROM categories WHERE slug = 'jackets'
 -- Keep generic Jackets subcategory if present (older seed).
 UPDATE categories
 SET name = 'Jackets',
-    variant_types = '["size","color","material"]'::jsonb,
-    updated_at = NOW()
+    variant_types = '["size","color","material"]'::jsonb
 WHERE slug = 'jackets-sub';
