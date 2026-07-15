@@ -9,14 +9,9 @@ var ShoeSizes = []string{"39", "40", "41", "42", "43", "44", "45", "46"}
 // CapSizes kept for legacy reference; caps/belts/ties use name-only variants now.
 var CapSizes = []string{"S", "M", "L", "XL"}
 
-// AllowsMultipleProducts — ties, caps, fedora can have many named products per category.
+// AllowsMultipleProducts — any leaf subcategory can hold multiple named products.
 func AllowsMultipleProducts(categorySlug string) bool {
-	switch categorySlug {
-	case "ties", "caps", "fedora-hats":
-		return true
-	default:
-		return false
-	}
+	return categorySlug != ""
 }
 
 // IsNameOnlyCategory — no size axis on variants (belts, ties, caps, fedora).

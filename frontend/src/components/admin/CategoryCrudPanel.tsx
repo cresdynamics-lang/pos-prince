@@ -214,7 +214,7 @@ export function useCategoryOptions(categories: Category[]) {
   return useMemo(() => flattenCategories(categories), [categories]);
 }
 
-/** Leaf categories only — subcategory = sellable product. */
+/** Leaf categories only — sellable subcategories that can hold one or more products. */
 export function useSellableCategoryOptions(categories: Category[]) {
   const flat = useCategoryOptions(categories);
   return useMemo(() => {

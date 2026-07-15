@@ -62,7 +62,8 @@ SELECT v.name, v.slug, c.id, '["size","color","material"]'
 FROM categories c
 CROSS JOIN (VALUES
     ('Jackets', 'jackets-sub'),
-    ('Half Jackets', 'half-jackets')
+    ('Half Jacket', 'half-jackets'),
+    ('Puff Jacket', 'puff-jackets')
 ) AS v(name, slug)
 WHERE c.slug = 'jackets';
 

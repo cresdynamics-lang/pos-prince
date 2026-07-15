@@ -5,6 +5,9 @@ export type TodaySaleRow = {
   product: string;
   variant_label: string;
   quantity: number;
+  list_price?: number;
+  sale_price?: number;
+  discount_amount?: number;
   total: number;
   payment_method: string;
   transaction_time: string;
@@ -35,20 +38,36 @@ export function StaffTodaySales({ sales }: { sales: TodaySaleRow[] }) {
           </tr>
         </thead>
         <tbody>
-          {sales.map((s) => (
-            <tr key={s.id} className="border-b border-[var(--shadow-dark)]/20">
-              <td className="px-4 py-3 text-xs text-[var(--muted)]">
-                {new Date(s.transaction_time).toLocaleTimeString()}
-              </td>
-              <td className="px-4 py-3">
-                {s.product}
-                <span className="block text-xs text-[var(--muted)]">{s.variant_label}</span>
-              </td>
-              <td className="px-4 py-3">{s.quantity}</td>
-              <td className="px-4 py-3 font-medium">KES {s.total.toLocaleString()}</td>
-              <td className="px-4 py-3 capitalize">{s.payment_method}</td>
-            </tr>
-          ))}
+          {sales.map((s) => {
+            const disc = s.discount_amount ?? 0;
+            return (
+              <tr key={s.id} className="border-b border-[var(--shadow-dark)]/20">
+                <td className="px-4 py-3 text-xs text-[var(--muted)]">
+                  {new Date(s.transaction_time).toLocaleTimeString()}
+                </td>
+                <td className="px-4 py-3">
+                  {s.product}
+                  <span className="block text-xs text-[var(--muted)]">{s.variant_label}</span>
+                </td>
+                <td className="px-4 py-3">{s.quantity}</td>
+                <td className="px-4 py-3 font-medium">
+                  KES {s.total.toLocaleString()}
+                  {disc > 0 && (
+                    <span className="mt-0.5 block text-[10px] font-normal text-red-700">
+                      −KES {disc.toLocaleString()} disc
+                      {s.list_price != null && (
+                        <span className="text-[var(--muted)]">
+                          {" "}
+                          (was {(s.list_price * s.quantity).toLocaleString()})
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 capitalize">{s.payment_method}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

@@ -415,7 +415,7 @@ export function PosView({ categories }: { categories: Category[] }) {
                         <span>{line.quantity}</span>
                         <button type="button" className="neu-btn px-2 py-0.5 text-xs" onClick={() => updateLine(line.key, { quantity: line.quantity + 1 })}>+</button>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <label className="text-xs text-[var(--muted)]">Price</label>
                         <input
                           type="number"
@@ -424,8 +424,16 @@ export function PosView({ categories }: { categories: Category[] }) {
                           onChange={(e) => updateLine(line.key, { sale_price: Number(e.target.value) })}
                           className="neu-inset w-24 px-2 py-1 text-xs"
                         />
-                        {lineDisc > 0 && (
-                          <span className="text-xs text-red-700">−{lineDisc.toLocaleString()}</span>
+                        {lineDisc > 0 ? (
+                          <span className="text-[10px] leading-tight text-red-700">
+                            <span className="line-through text-[var(--muted)]">
+                              KES {line.list_price.toLocaleString()}
+                            </span>
+                            {" · "}
+                            −KES {lineDisc.toLocaleString()} disc
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-[var(--muted)]">list KES {line.list_price.toLocaleString()}</span>
                         )}
                       </div>
                       <div>
@@ -510,9 +518,14 @@ export function PosView({ categories }: { categories: Category[] }) {
               ))}
             </div>
             <div className="flex justify-between border-t border-[var(--shadow-dark)]/30 pt-2 font-semibold">
-              <span>Total</span>
+              <span>Total (net)</span>
               <span className="accent-text">KES {totals.finalNet.toLocaleString()}</span>
             </div>
+            {(totals.lineDisc > 0 || overallDiscount > 0) && (
+              <p className="text-[10px] leading-snug text-[var(--muted)]">
+                Discounts sync to the database and reduce revenue / profit totals.
+              </p>
+            )}
             <button
               type="button"
               disabled={cart.length === 0 || !sellingStore}

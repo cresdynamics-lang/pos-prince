@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type MouseEvent } from "react";
 import { CategoryAccordion } from "@/components/CategoryAccordion";
 import { CategoryCrudPanel } from "@/components/admin/CategoryCrudPanel";
 import { ProductCrudPanel } from "@/components/admin/ProductCrudPanel";
@@ -40,6 +40,10 @@ export function InventoryAdminPage() {
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [activeVariant, setActiveVariant] = useState<string | null>(null);
   const [pickStoreMsg, setPickStoreMsg] = useState("");
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState(0);
+  const [savingRowId, setSavingRowId] = useState<string | null>(null);
+  const [stockMsg, setStockMsg] = useState("");
 
   const loadCategories = useCallback(() => {
     apiFetch<{ categories: Category[] }>("/categories")
@@ -63,17 +67,17 @@ export function InventoryAdminPage() {
       .catch(() => {});
   }, [loadCategories]);
 
-  useEffect(() => {
-    if (tab === "stock") load();
-  }, [tab, load]);
-
+  // Live refresh whenever store, category, or tab changes.
   useEffect(() => {
     if (isAllStores) {
       setActiveVariant(null);
+      setEditingRowId(null);
     }
     setPickStoreMsg("");
+    setStockMsg("");
+    setEditingRowId(null);
     if (tab === "stock") load();
-  }, [isAllStores, selectedStoreId, tab, load]);
+  }, [isAllStores, selectedStoreId, selected, tab, load]);
 
   function openVariantFromProduct(variantId: string) {
     if (isAllStores) {
@@ -93,6 +97,43 @@ export function InventoryAdminPage() {
     setPickStoreMsg("");
   }
 
+  function startInlineEdit(r: InventoryRow, e: MouseEvent) {
+    e.stopPropagation();
+    if (!canEditHere) return;
+    setEditingRowId(r.id);
+    setEditQty(r.quantity);
+    setStockMsg("");
+  }
+
+  async function saveInlineQty(r: InventoryRow, e?: FormEvent | MouseEvent) {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (!canEditHere || !selectedStoreId) return;
+    const shopId = r.shop_id || selectedStoreId;
+    setSavingRowId(r.id);
+    setStockMsg("");
+    try {
+      const res = await apiFetch<{ quantity: number }>("/inventory/set", {
+        method: "POST",
+        body: JSON.stringify({
+          shop_id: shopId,
+          product_variant_id: r.product_variant_id,
+          quantity: Math.max(0, Math.floor(editQty)),
+        }),
+      });
+      setRows((prev) =>
+        prev.map((row) => (row.id === r.id ? { ...row, quantity: res.quantity } : row)),
+      );
+      setEditingRowId(null);
+      setStockMsg(`Updated on hand to ${res.quantity} at ${selectedStore?.name ?? "store"}`);
+      load();
+    } catch (err) {
+      setStockMsg(err instanceof Error ? err.message : "Could not update stock");
+    } finally {
+      setSavingRowId(null);
+    }
+  }
+
   const tabs: { id: Tab; label: string }[] = [
     { id: "stock", label: "Stock" },
     ...(canEdit
@@ -109,7 +150,7 @@ export function InventoryAdminPage() {
         hint={
           isAllStores
             ? "Stock is read-only across all stores. Pick one store in the header to update inventory."
-            : `Stock, products, and counts below are for ${selectedStore?.name ?? "this store"} only.`
+            : `Live stock for ${selectedStore?.name ?? "this store"} — switch store in the header to load that location’s inventory.`
         }
       />
 
@@ -137,8 +178,9 @@ export function InventoryAdminPage() {
           <p className="text-sm text-[var(--muted)]">
             {isAllStores
               ? "View stock across all stores. Select a store in the header to edit quantities."
-              : "Click a row to add stock or move items for this store."}
+              : "Edit On hand inline, or click a row for add / set / transfer. Counts update live for the selected store."}
           </p>
+          {stockMsg && <p className="text-xs accent-text">{stockMsg}</p>}
           <div className="grid items-start gap-6 lg:grid-cols-[280px_1fr]">
             <aside className="sticky top-4 max-h-[calc(100vh-10rem)] self-start overflow-y-auto">
               <p className="mb-3 text-xs uppercase tracking-widest text-[var(--muted)]">Category</p>
@@ -160,7 +202,7 @@ export function InventoryAdminPage() {
                 <tbody>
                   {rows.map((r) => (
                     <tr
-                      key={r.id}
+                      key={`${r.id}-${r.shop_id}`}
                       className={`border-b border-[var(--shadow-dark)]/20 ${
                         canEditHere ? "cursor-pointer hover:opacity-80" : ""
                       } ${activeVariant === r.product_variant_id ? "bg-[var(--shadow-dark)]/10" : ""}`}
@@ -171,7 +213,47 @@ export function InventoryAdminPage() {
                       <td className="px-3 py-2">{r.size || "—"}</td>
                       <td className="px-3 py-2">{r.color || "—"}</td>
                       <td className="px-3 py-2">{r.opening_stock}</td>
-                      <td className="px-3 py-2 font-medium accent-text">{r.quantity}</td>
+                      <td className="px-3 py-2" onClick={(e) => canEditHere && e.stopPropagation()}>
+                        {canEditHere && editingRowId === r.id ? (
+                          <form className="flex items-center gap-1" onSubmit={(e) => saveInlineQty(r, e)}>
+                            <input
+                              type="number"
+                              min={0}
+                              autoFocus
+                              value={editQty}
+                              onChange={(e) => setEditQty(Number(e.target.value))}
+                              className="neu-inset w-16 px-2 py-1 text-xs"
+                            />
+                            <button
+                              type="submit"
+                              disabled={savingRowId === r.id}
+                              className="neu-btn px-2 py-1 text-[10px] accent-text disabled:opacity-50"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              className="neu-btn px-2 py-1 text-[10px]"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingRowId(null);
+                              }}
+                            >
+                              ×
+                            </button>
+                          </form>
+                        ) : (
+                          <button
+                            type="button"
+                            className={`font-medium accent-text ${canEditHere ? "underline decoration-dotted" : ""}`}
+                            onClick={(e) => startInlineEdit(r, e)}
+                            title={canEditHere ? "Edit on-hand for this store" : undefined}
+                            disabled={!canEditHere}
+                          >
+                            {r.quantity}
+                          </button>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-xs text-[var(--muted)]">{r.sku}</td>
                     </tr>
                   ))}
@@ -214,6 +296,7 @@ export function InventoryAdminPage() {
 
       {activeVariant && !isAllStores && (
         <ProductDetailPanel
+          key={`${activeVariant}-${selectedStoreId}`}
           variantId={activeVariant}
           shops={shops}
           categories={categories}

@@ -85,12 +85,16 @@ export function SalesPageClient() {
               {!staffView && isAllStores && <th className="px-4 py-3">Store</th>}
               {!staffView && <th className="px-4 py-3">Cashier</th>}
               <th className="px-4 py-3">Qty</th>
-              <th className="px-4 py-3">Amount</th>
+              <th className="px-4 py-3">Price</th>
+              <th className="px-4 py-3">Discount</th>
+              <th className="px-4 py-3">Net</th>
               <th className="px-4 py-3">Payment</th>
             </tr>
           </thead>
           <tbody>
-            {displaySales.map((s) => (
+            {displaySales.map((s) => {
+              const lineDisc = s.discount_amount ?? Math.max(0, (s.list_price - s.sale_price) * s.quantity);
+              return (
               <tr key={s.id} className="border-b border-[var(--shadow-dark)]/20">
                 <td className="px-4 py-3 text-xs text-[var(--muted)]">
                   {new Date(s.transaction_time).toLocaleString()}
@@ -104,14 +108,35 @@ export function SalesPageClient() {
                 )}
                 {!staffView && <td className="px-4 py-3 accent-text">{s.cashier}</td>}
                 <td className="px-4 py-3">{s.quantity}</td>
-                <td className="px-4 py-3 font-medium">KES {s.total.toLocaleString()}</td>
+                <td className="px-4 py-3">
+                  <span className="font-medium">KES {s.sale_price.toLocaleString()}</span>
+                  {lineDisc > 0 && (
+                    <span className="ml-1 text-[10px] text-[var(--muted)] line-through">
+                      {s.list_price.toLocaleString()}
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {lineDisc > 0 ? (
+                    <span className="text-red-700">−KES {lineDisc.toLocaleString()}</span>
+                  ) : (
+                    <span className="text-[var(--muted)]">—</span>
+                  )}
+                  {(s.overall_discount ?? 0) > 0 && (
+                    <span className="block text-[10px] text-[var(--muted)]">
+                      order −KES {s.overall_discount.toLocaleString()}
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 font-medium accent-text">KES {s.total.toLocaleString()}</td>
                 <td className="px-4 py-3 capitalize">{s.payment_method}</td>
               </tr>
-            ))}
+              );
+            })}
             {displaySales.length === 0 && (
               <tr>
                 <td
-                  colSpan={staffView ? 5 : isAllStores ? 7 : 6}
+                  colSpan={staffView ? 7 : isAllStores ? 9 : 8}
                   className="px-4 py-10 text-center text-[var(--muted)]"
                 >
                   {staffView ? "No sales today yet." : "No sales found for this view."}

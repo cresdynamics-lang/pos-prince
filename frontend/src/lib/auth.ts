@@ -183,6 +183,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", permission: PERMS.dashboard, icon: "◫" },
   { href: "/admin/notifications", label: "Notifications", permission: PERMS.analytics, icon: "◷" },
   { href: "/admin/analytics", label: "Analytics", permission: PERMS.analytics, icon: "◔" },
+  { href: "/admin/reports", label: "Reports", permission: PERMS.analytics, icon: "▤" },
   { href: "/admin/sales", label: "Sales", permission: PERMS.sales, icon: "◎" },
   { href: "/admin/revenue", label: "Revenue", permission: PERMS.revenue, icon: "◈" },
   { href: "/admin/finance", label: "Finance", permission: PERMS.finance, icon: "₣" },
@@ -229,7 +230,8 @@ export function canAccessPath(user: AuthUser | null, pathname: string): boolean 
     (pathname.startsWith("/admin/revenue") ||
       pathname.startsWith("/admin/finance") ||
       pathname.startsWith("/admin/notifications") ||
-      pathname.startsWith("/admin/activity")) &&
+      pathname.startsWith("/admin/activity") ||
+      pathname.startsWith("/admin/reports")) &&
     !isDirector(user)
   ) {
     return false;

@@ -20,7 +20,6 @@ type Product = {
   provisioned: boolean;
 };
 
-const MULTI_PRODUCT_SLUGS = new Set(["ties", "caps", "fedora-hats"]);
 const NAME_ONLY_SLUGS = new Set(["ties", "caps", "fedora-hats", "belts"]);
 
 type Props = {
@@ -64,29 +63,19 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
     load();
   }, [load]);
 
-  const unprovisioned = useMemo(
-    () => sellableCategories.filter((c) => !products.find((p) => p.category_id === c.id && p.provisioned)),
-    [sellableCategories, products],
-  );
-
-  const setupCategories = useMemo(() => {
-    return sellableCategories.filter(
-      (c) =>
-        MULTI_PRODUCT_SLUGS.has(c.slug) ||
-        !products.some((p) => p.category_id === c.id && p.provisioned),
-    );
-  }, [sellableCategories, products]);
-
   const selectedCategory = sellableCategories.find((c) => c.id === categoryId);
   const nameOnly = selectedCategory ? NAME_ONLY_SLUGS.has(selectedCategory.slug) : false;
+  const productsInSelected = useMemo(
+    () => products.filter((p) => p.provisioned && p.category_id === categoryId),
+    [products, categoryId],
+  );
 
   const visibleProducts = showInactive
     ? products
     : products.filter((p) => p.provisioned && p.is_active);
 
   function resetFields() {
-    const first = unprovisioned[0]?.id ?? sellableCategories[0]?.id ?? "";
-    setCategoryId(first);
+    setCategoryId(sellableCategories[0]?.id ?? "");
     setProductName("");
     setBrand("");
     setBasePrice(0);
@@ -116,6 +105,10 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
       setMsg("Choose a subcategory");
       return;
     }
+    if (productsInSelected.length > 0 && !productName.trim()) {
+      setMsg("Enter a distinct product name for this subcategory");
+      return;
+    }
     setMsg("");
     try {
       const colorList = colors
@@ -135,7 +128,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
           shop_id: storeId || undefined,
         }),
       });
-      setMsg("Product set up");
+      setMsg("Product saved");
       closeForm();
       resetFields();
       load();
@@ -184,10 +177,10 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
   }
 
   async function openStock(p: Product) {
-    if (!onOpenVariant || !p.provisioned) return;
+    if (!onOpenVariant || !p.provisioned || !p.id) return;
     try {
       const d = await apiFetch<{ variants: { id: string; product: string }[] }>(
-        `/variants?category_slug=${encodeURIComponent(p.category_slug)}`,
+        `/variants?product_id=${encodeURIComponent(p.id)}`,
       );
       const variant = (d.variants ?? [])[0];
       if (variant) onOpenVariant(variant.id);
@@ -201,7 +194,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
     <div className="grid items-start gap-6 lg:grid-cols-[1fr_320px]">
       <div className="min-w-0 space-y-4">
         <p className="text-sm text-[var(--muted)]">
-          Each subcategory is a product (e.g. Loafers, Ties, Linen Shirts). Stock is tracked per shop and can differ between locations.
+          Pick a subcategory (e.g. Loafers, Formal Shirts). You can add multiple named products under the same subcategory, each with its own price and stock.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <select
@@ -228,8 +221,8 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
               <tr className="border-b border-[var(--shadow-dark)]/30 text-xs uppercase text-[var(--muted)]">
-                <th className="px-4 py-3">Product (subcategory)</th>
-                <th className="px-4 py-3">Category</th>
+                <th className="px-4 py-3">Product</th>
+                <th className="px-4 py-3">Subcategory</th>
                 <th className="px-4 py-3">Price</th>
                 <th className="px-4 py-3">Status</th>
                 {canEdit && <th className="px-4 py-3">Actions</th>}
@@ -238,14 +231,21 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
             <tbody>
               {visibleProducts.map((p) => (
                 <tr
-                  key={p.category_id}
+                  key={p.id || `pending-${p.category_id}`}
                   className={`border-b border-[var(--shadow-dark)]/20 ${
                     selectedId === (p.id || p.category_id) ? "bg-[var(--shadow-dark)]/10" : ""
                   }`}
                 >
-                  <td className="px-4 py-3 font-medium">{p.name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {p.name}
+                    {p.provisioned && p.parent_name && (
+                      <span className="mt-0.5 block text-[10px] font-normal text-[var(--muted)]">
+                        {p.category_name}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-[var(--muted)]">
-                    {p.parent_name || p.category_name}
+                    {p.parent_name ? `${p.parent_name} › ${p.category_name}` : p.category_name}
                   </td>
                   <td className="px-4 py-3">
                     {p.provisioned && editingPriceId === p.id && canEdit ? (
@@ -302,6 +302,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
                             className="neu-btn px-2 py-1 text-xs accent-text"
                             onClick={() => {
                               setCategoryId(p.category_id);
+                              setProductName("");
                               setShowForm(true);
                             }}
                           >
@@ -314,6 +315,17 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
                                 Stock
                               </button>
                             )}
+                            <button
+                              type="button"
+                              className="neu-btn px-2 py-1 text-xs accent-text"
+                              onClick={() => {
+                                setCategoryId(p.category_id);
+                                setProductName("");
+                                setShowForm(true);
+                              }}
+                            >
+                              + Same subcat
+                            </button>
                             {p.is_active && (
                               <button type="button" className="neu-btn px-2 py-1 text-xs text-red-700" onClick={() => deactivate(p)}>
                                 Deactivate
@@ -342,7 +354,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
       {canEdit ? (
         <aside className="sticky top-4 max-h-[calc(100vh-10rem)] self-start overflow-y-auto neu-flat p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold accent-text">Set up product</h3>
+          <h3 className="text-sm font-semibold accent-text">Add product</h3>
           <button type="button" className="neu-btn px-3 py-1.5 text-sm accent-text" onClick={startCreate}>
             + Add
           </button>
@@ -350,38 +362,39 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
 
         {!showForm ? (
           <p className="text-sm text-[var(--muted)]">
-            Pick a subcategory to configure pricing, colors, and initial stock per shop. The subcategory name becomes the product name.
+            Choose a subcategory, give the product a name, set price and stock. Add as many products as you need under the same subcategory.
           </p>
         ) : (
           <div className="space-y-3 text-sm">
-            <p className="text-xs font-medium text-[var(--muted)]">Subcategory = product</p>
+            <p className="text-xs font-medium text-[var(--muted)]">Category › subcategory</p>
             <select
               value={categoryId}
               onChange={(e) => {
                 setCategoryId(e.target.value);
-                const cat = sellableCategories.find((c) => c.id === e.target.value);
-                if (cat && MULTI_PRODUCT_SLUGS.has(cat.slug)) setProductName("");
+                setProductName("");
               }}
               className="neu-inset w-full px-3 py-2 text-sm"
             >
               <option value="">Select subcategory</option>
-              {setupCategories.map((c) => (
+              {sellableCategories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.parent_name ? `${c.parent_name} › ${c.name}` : c.name}
                 </option>
               ))}
             </select>
-            {(nameOnly || (selectedCategory && MULTI_PRODUCT_SLUGS.has(selectedCategory.slug))) && (
-              <input
-                value={productName}
-                onChange={(e) => setProductName(e.target.value)}
-                placeholder={MULTI_PRODUCT_SLUGS.has(selectedCategory?.slug ?? "") ? "Product name e.g. Silk Red Tie" : "Product name"}
-                className="neu-inset w-full px-3 py-2 text-sm"
-              />
-            )}
-            {selectedCategory && !MULTI_PRODUCT_SLUGS.has(selectedCategory.slug) && (
-              <p className="rounded-lg bg-[var(--shadow-dark)]/10 px-3 py-2 text-xs">
-                Product name: <strong>{productName || selectedCategory.name}</strong>
+            <input
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
+              placeholder={
+                productsInSelected.length > 0
+                  ? "Product name (required)"
+                  : `Product name (default: ${selectedCategory?.name ?? "subcategory"})`
+              }
+              className="neu-inset w-full px-3 py-2 text-sm"
+            />
+            {productsInSelected.length > 0 && (
+              <p className="text-[10px] text-[var(--muted)]">
+                {productsInSelected.length} product(s) already in this subcategory — use a unique name.
               </p>
             )}
             <input
@@ -424,7 +437,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
             />
             <div className="flex gap-2">
               <button type="button" onClick={save} className="neu-btn flex-1 py-2 accent-text">
-                Set up product
+                Save product
               </button>
               <button type="button" onClick={closeForm} className="neu-btn px-3 py-2 text-sm">
                 Cancel

@@ -193,6 +193,11 @@ func (h *Handler) ListProductVariants(c *gin.Context) {
 		n++
 	}
 	query += ` WHERE p.is_active = TRUE`
+	if productID := strings.TrimSpace(c.Query("product_id")); productID != "" {
+		query += fmt.Sprintf(` AND p.id = $%d`, n)
+		args = append(args, productID)
+		n++
+	}
 	if categorySlug != "" {
 		query += fmt.Sprintf(` AND (cat.slug = $%d OR parent.slug = $%d)`, n, n)
 		args = append(args, categorySlug)

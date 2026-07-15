@@ -23,6 +23,9 @@ type todaySaleRow struct {
 	Product         string    `json:"product"`
 	VariantLabel    string    `json:"variant_label"`
 	Quantity        int       `json:"quantity"`
+	ListPrice       float64   `json:"list_price"`
+	SalePrice       float64   `json:"sale_price"`
+	DiscountAmount  float64   `json:"discount_amount"`
 	Total           float64   `json:"total"`
 	PaymentMethod   string    `json:"payment_method"`
 	TransactionTime time.Time `json:"transaction_time"`
@@ -131,7 +134,8 @@ func (h *Handler) queryTodaySales(ctx context.Context, sc analyticsScope) []toda
 	stClause, _, args := txnFilters(sc, "st")
 	rows, err := h.DB.Query(ctx, fmt.Sprintf(`
 		SELECT st.id::text, p.name, pv.size, pv.color, pv.material,
-		       st.quantity, st.sale_price * st.quantity, st.payment_method::text, st.transaction_time
+		       st.quantity, st.list_price, st.sale_price, st.discount_amount,
+		       st.sale_price * st.quantity, st.payment_method::text, st.transaction_time
 		FROM sales_transactions st
 		JOIN product_variants pv ON pv.id = st.product_variant_id
 		JOIN products p ON p.id = pv.product_id
@@ -146,7 +150,11 @@ func (h *Handler) queryTodaySales(ctx context.Context, sc analyticsScope) []toda
 	for rows.Next() {
 		var r todaySaleRow
 		var size, color, material *string
-		if rows.Scan(&r.ID, &r.Product, &size, &color, &material, &r.Quantity, &r.Total, &r.PaymentMethod, &r.TransactionTime) == nil {
+		if rows.Scan(
+			&r.ID, &r.Product, &size, &color, &material,
+			&r.Quantity, &r.ListPrice, &r.SalePrice, &r.DiscountAmount,
+			&r.Total, &r.PaymentMethod, &r.TransactionTime,
+		) == nil {
 			r.VariantLabel = variantLabel(size, color, material)
 			out = append(out, r)
 		}

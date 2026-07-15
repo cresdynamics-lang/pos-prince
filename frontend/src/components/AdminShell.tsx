@@ -134,7 +134,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const mainNav = NAV_ITEMS.filter((item) => {
     if (item.href === "/pos") return false;
     if (item.href === "/admin/notifications" && !isDirector(user)) return false;
-    if ((item.href === "/admin/revenue" || item.href === "/admin/finance") && !isDirector(user)) {
+    if (
+      (item.href === "/admin/revenue" ||
+        item.href === "/admin/finance" ||
+        item.href === "/admin/reports") &&
+      !isDirector(user)
+    ) {
       return false;
     }
     return hasPermission(user, item.permission);

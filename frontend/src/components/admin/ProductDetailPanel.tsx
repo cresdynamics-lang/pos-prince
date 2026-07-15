@@ -53,8 +53,8 @@ export function ProductDetailPanel({
   const tabs = useMemo(
     () =>
       [
+        { id: "stock" as const, label: "Update stock", show: canEditInventory },
         { id: "details" as const, label: "Details", show: canEditInventory },
-        { id: "stock" as const, label: "Add stock", show: canEditInventory },
         { id: "transfer" as const, label: "Move stock", show: canEditInventory },
       ].filter((t) => t.show),
     [canEditInventory],
@@ -62,7 +62,7 @@ export function ProductDetailPanel({
   const categoryOptions = useCategoryOptions(categories);
   const [variant, setVariant] = useState<VariantDetail | null>(null);
   const [stores, setStores] = useState<StoreStock[]>([]);
-  const [section, setSection] = useState<"details" | "stock" | "transfer">("details");
+  const [section, setSection] = useState<"details" | "stock" | "transfer">("stock");
   const [msg, setMsg] = useState("");
   const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -109,11 +109,21 @@ export function ProductDetailPanel({
           setFromStore(preferred);
           setSetQtyStore(preferred);
         }
+        const currentQty =
+          scoped.find((s) => s.store_id === preferred)?.quantity ??
+          scoped[0]?.quantity ??
+          0;
+        setSetQtyValue(currentQty);
         const other = shops.find((s) => s.id !== preferred);
         if (other) setToStore(other.id);
+        setMsg(
+          lockedStoreId
+            ? `Showing live stock for ${lockedShops[0]?.name ?? "selected store"}`
+            : "",
+        );
       })
       .catch(() => setMsg("Could not load product"));
-  }, [variantId, lockedStoreId, shops]);
+  }, [variantId, lockedStoreId, shops, lockedShops]);
 
   useEffect(() => {
     load();
@@ -177,7 +187,8 @@ export function ProductDetailPanel({
           quantity: setQtyValue,
         }),
       });
-      setMsg(`Stock set to ${res.quantity}`);
+      setMsg(`Stock set to ${res.quantity} at ${lockedStoreId ? lockedStoreName : "store"}`);
+      setSetQtyValue(res.quantity);
       load();
       onUpdated();
     } catch (e) {
@@ -264,7 +275,7 @@ export function ProductDetailPanel({
         <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-4">
           <div className="neu-inset mb-4 p-3">
             <p className="mb-2 text-xs font-medium uppercase text-[var(--muted)]">
-              {lockedStoreId ? `Stock at ${lockedStoreName}` : "Stock per store"}
+              {lockedStoreId ? `Live stock · ${lockedStoreName}` : "Stock per store"}
             </p>
             {stores.map((s) => (
               <div key={s.store_id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--shadow-dark)]/20 py-2 text-sm last:border-0">
@@ -276,25 +287,48 @@ export function ProductDetailPanel({
               </div>
             ))}
             {stores.length === 0 && (
-              <p className="text-sm text-[var(--muted)]">No stock recorded at {lockedStoreName} yet.</p>
+              <p className="text-sm text-[var(--muted)]">
+                No stock row yet at {lockedStoreName}. Use Set stock or Add units below — it saves for this store only.
+              </p>
             )}
           </div>
 
           {canEditInventory && (
             <div className="neu-inset mb-4 space-y-2 p-3 text-sm">
-              <p className="text-xs font-medium uppercase text-[var(--muted)]">Set stock count</p>
+              <p className="text-xs font-medium uppercase text-[var(--muted)]">
+                Set on-hand count{lockedStoreId ? ` · ${lockedStoreName}` : ""}
+              </p>
               {lockedStoreId ? (
-                <p className="text-xs text-[var(--muted)]">{lockedStoreName}</p>
+                <p className="text-xs text-[var(--muted)]">
+                  Updates inventory for this store only. Switch store in the header to edit another location.
+                </p>
               ) : (
-                <select value={setQtyStore} onChange={(e) => setSetQtyStore(e.target.value)} className="neu-inset w-full px-2 py-1 text-xs">
+                <select
+                  value={setQtyStore}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSetQtyStore(id);
+                    setSetQtyValue(stores.find((s) => s.store_id === id)?.quantity ?? 0);
+                  }}
+                  className="neu-inset w-full px-2 py-1 text-xs"
+                >
                   <option value="">Store</option>
                   {shops.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
               )}
-              <input type="number" min={0} value={setQtyValue} onChange={(e) => setSetQtyValue(Number(e.target.value))} className="neu-inset w-full px-2 py-1 text-xs" placeholder="Quantity on hand" />
-              <button type="button" onClick={setStockQty} className="neu-btn w-full py-2 text-xs accent-text">Update stock</button>
+              <input
+                type="number"
+                min={0}
+                value={setQtyValue}
+                onChange={(e) => setSetQtyValue(Number(e.target.value))}
+                className="neu-inset w-full px-2 py-1 text-xs"
+                placeholder="Quantity on hand"
+              />
+              <button type="button" onClick={setStockQty} className="neu-btn w-full py-2 text-xs accent-text">
+                Save stock for store
+              </button>
             </div>
           )}
 

@@ -160,15 +160,26 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "choose a subcategory — parent categories are not sellable products"})
 		return
 	}
-	multiProduct := catalog.AllowsMultipleProducts(catSlug)
-	if existingProducts > 0 && !multiProduct {
-		c.JSON(http.StatusConflict, gin.H{"error": "this subcategory already has a product — add stock or create a named item in Ties/Caps instead"})
-		return
-	}
-
 	productName := strings.TrimSpace(req.Name)
 	if productName == "" {
+		if existingProducts > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "enter a product name — this subcategory already has products"})
+			return
+		}
 		productName = catName
+	}
+	if existingProducts > 0 {
+		var nameTaken bool
+		_ = h.DB.QueryRow(c.Request.Context(), `
+			SELECT EXISTS(
+				SELECT 1 FROM products
+				WHERE category_id = $1 AND lower(trim(name)) = lower(trim($2)) AND is_active = TRUE
+			)
+		`, catID, productName).Scan(&nameTaken)
+		if nameTaken {
+			c.JSON(http.StatusConflict, gin.H{"error": "a product with this name already exists in this subcategory"})
+			return
+		}
 	}
 
 	colors := req.Colors
@@ -197,7 +208,13 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		return
 	}
 
-	baseSlug := catSlug
+	baseSlug := slugify(productName)
+	if baseSlug == "" {
+		baseSlug = catSlug
+	}
+	if existingProducts > 0 {
+		baseSlug = catSlug + "-" + baseSlug
+	}
 	variantCount, err := createProductVariants(ctx, tx, productID, baseSlug, catSlug, colors)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

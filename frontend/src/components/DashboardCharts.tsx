@@ -26,6 +26,8 @@ export type DashboardData = {
     revenue_today: number;
     profit_today: number;
     orders_today: number;
+    gross_revenue_today?: number;
+    discount_today?: number;
   };
   revenue_trend: ChartPoint[];
   sales_by_category: ChartPoint[];
@@ -43,6 +45,7 @@ export function SummaryCards({
   summary: DashboardData["summary"];
   variant?: "director" | "staff";
 }) {
+  const discount = summary.discount_today ?? 0;
   const cards =
     variant === "staff"
       ? [
@@ -58,18 +61,43 @@ export function SummaryCards({
           },
         ]
       : [
-          { label: "Sales Today", value: String(summary.sales_today), sub: "units sold" },
-          { label: "Revenue Today", value: fmtKes(summary.revenue_today), sub: "gross" },
-          { label: "Profit Today", value: fmtKes(summary.profit_today), sub: "after cost" },
+          { label: "Units sold", value: String(summary.sales_today), sub: "items" },
+          {
+            label: "Revenue today",
+            value: fmtKes(summary.revenue_today),
+            sub:
+              discount > 0
+                ? `net after −KES ${discount.toLocaleString()} discounts`
+                : "net after discounts",
+          },
+          {
+            label: "Discounts today",
+            value: fmtKes(discount),
+            sub:
+              (summary.gross_revenue_today ?? 0) > 0
+                ? `from KES ${(summary.gross_revenue_today ?? 0).toLocaleString()} list`
+                : "line + overall",
+          },
+          { label: "Profit today", value: fmtKes(summary.profit_today), sub: "after cost" },
           { label: "Orders", value: String(summary.orders_today), sub: "transactions" },
         ];
 
   return (
-    <div className={`grid gap-4 sm:grid-cols-2 ${variant === "staff" ? "lg:grid-cols-3" : "xl:grid-cols-4"}`}>
+    <div
+      className={`grid gap-4 sm:grid-cols-2 ${
+        variant === "staff" ? "lg:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-5"
+      }`}
+    >
       {cards.map((c) => (
         <div key={c.label} className="neu-flat p-5">
           <p className="text-xs uppercase tracking-wide text-[var(--muted)]">{c.label}</p>
-          <p className="mt-2 text-2xl font-semibold accent-text">{c.value}</p>
+          <p
+            className={`mt-2 text-2xl font-semibold ${
+              c.label === "Discounts today" && discount > 0 ? "text-red-700" : "accent-text"
+            }`}
+          >
+            {c.value}
+          </p>
           <p className="text-[10px] text-[var(--muted)]">{c.sub}</p>
         </div>
       ))}
