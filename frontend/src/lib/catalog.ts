@@ -41,8 +41,14 @@ export const FALLBACK_CATEGORIES: Category[] = [
     { id: "4a", name: "Two Piece", slug: "two-piece", variant_types: ["size", "color"] },
     { id: "4b", name: "Three Piece", slug: "three-piece", variant_types: ["size", "color"] },
   ]},
-  { id: "5", name: "Blazers", slug: "blazers", variant_types: ["size", "color"], children: [] },
-  { id: "6", name: "Track Suits", slug: "track-suits", variant_types: ["size", "color"], children: [] },
+  { id: "5", name: "Blazers", slug: "blazers", variant_types: ["size", "color"], children: [
+    { id: "5a", name: "Formal Blazers", slug: "formal-blazers", variant_types: ["size", "color"] },
+    { id: "5b", name: "Casual Blazers", slug: "casual-blazers", variant_types: ["size", "color"] },
+  ]},
+  { id: "6", name: "Track Suits", slug: "track-suits", variant_types: ["size", "color"], children: [
+    { id: "6a", name: "Track Suits", slug: "track-suits-set", variant_types: ["size", "color"] },
+    { id: "6b", name: "Joggers Set", slug: "joggers-set", variant_types: ["size", "color"] },
+  ]},
   { id: "7", name: "Jackets", slug: "jackets", variant_types: ["size", "color", "material"], children: [
     { id: "7a", name: "Jackets", slug: "jackets-sub", variant_types: ["size", "color", "material"] },
     { id: "7b", name: "Half Jacket", slug: "half-jackets", variant_types: ["size", "color", "material"] },
@@ -69,7 +75,11 @@ export const FALLBACK_CATEGORIES: Category[] = [
     { id: "11a", name: "Belts", slug: "belts", variant_types: ["size", "color"] },
     { id: "11b", name: "Ties", slug: "ties", variant_types: ["color"] },
   ]},
-  { id: "12", name: "Sweaters", slug: "sweaters", variant_types: ["size", "color"], children: [] },
+  { id: "12", name: "Sweaters", slug: "sweaters", variant_types: ["size", "color"], children: [
+    { id: "12a", name: "Crew Neck", slug: "crew-neck-sweaters", variant_types: ["size", "color"] },
+    { id: "12b", name: "V-Neck", slug: "v-neck-sweaters", variant_types: ["size", "color"] },
+    { id: "12c", name: "Cardigans", slug: "cardigans", variant_types: ["size", "color"] },
+  ]},
   { id: "13", name: "T-Shirts", slug: "t-shirts", variant_types: ["size", "color"], children: [
     { id: "13a", name: "Sweat-Shirts", slug: "sweat-shirts", variant_types: ["size", "color"] },
     { id: "13b", name: "Round-Neck T-Shirts", slug: "round-neck-t-shirts", variant_types: ["size", "color"] },

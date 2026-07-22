@@ -178,13 +178,18 @@ export function CategoryCrudPanel({ categories, onChanged, canEdit = true }: Pro
             onChange={(e) => setParentId(e.target.value)}
             className="neu-inset w-full px-3 py-2 text-sm"
           >
-            <option value="">Top-level category</option>
+            <option value="">Top-level category (no parent)</option>
             {parents
               .filter((p) => p.id !== editingId)
               .map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>
+                  Under {p.name}
+                </option>
               ))}
           </select>
+          <p className="text-[10px] text-[var(--muted)]">
+            {parents.length} parent categories available. Pick one to create a subcategory products can use.
+          </p>
           <div className="flex flex-wrap gap-2">
             {VARIANT_OPTIONS.map((v) => (
               <label key={v} className="flex items-center gap-1 text-xs">

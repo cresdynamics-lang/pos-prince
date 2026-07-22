@@ -20,6 +20,15 @@ type Product = {
   provisioned: boolean;
 };
 
+type FlatSellable = {
+  id: string;
+  name: string;
+  slug: string;
+  parent_id?: string | null;
+  parent_name?: string;
+  variant_types: string[];
+};
+
 const NAME_ONLY_SLUGS = new Set(["ties", "caps", "fedora-hats", "belts"]);
 
 type Props = {
@@ -30,7 +39,14 @@ type Props = {
   storeId?: string;
 };
 
-export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit = true, storeId = "" }: Props) {
+export function ProductCrudPanel({
+  categories: categoriesProp,
+  onChanged,
+  onOpenVariant,
+  canEdit = true,
+  storeId = "",
+}: Props) {
+  const [categories, setCategories] = useState<Category[]>(categoriesProp);
   const sellableCategories = useSellableCategoryOptions(categories);
   const parentCategories = categories;
   const [products, setProducts] = useState<Product[]>([]);
@@ -39,6 +55,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
   const [showForm, setShowForm] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [categoryQuery, setCategoryQuery] = useState("");
 
   const [categoryId, setCategoryId] = useState("");
   const [productName, setProductName] = useState("");
@@ -50,6 +67,22 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
   const [editListPrice, setEditListPrice] = useState(0);
   const [editCostPrice, setEditCostPrice] = useState(0);
   const [initialStock, setInitialStock] = useState(0);
+
+  const refreshCategories = useCallback(() => {
+    apiFetch<{ categories: Category[] }>("/categories")
+      .then((d) => {
+        if (d.categories?.length) setCategories(d.categories);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setCategories(categoriesProp);
+  }, [categoriesProp]);
+
+  useEffect(() => {
+    refreshCategories();
+  }, [refreshCategories]);
 
   const load = useCallback(() => {
     const params = new URLSearchParams({ active: "false" });
@@ -70,12 +103,42 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
     [products, categoryId],
   );
 
+  const filteredSellable = useMemo(() => {
+    const q = categoryQuery.trim().toLowerCase();
+    const list = [...sellableCategories].sort((a, b) => {
+      const ap = a.parent_name || "";
+      const bp = b.parent_name || "";
+      if (ap !== bp) return ap.localeCompare(bp);
+      return a.name.localeCompare(b.name);
+    });
+    if (!q) return list;
+    return list.filter((c) => {
+      const label = `${c.parent_name ?? ""} ${c.name} ${c.slug}`.toLowerCase();
+      return label.includes(q);
+    });
+  }, [sellableCategories, categoryQuery]);
+
+  const groupedSellable = useMemo(() => {
+    const groups: { parent: string; items: FlatSellable[] }[] = [];
+    const map = new Map<string, FlatSellable[]>();
+    for (const c of filteredSellable) {
+      const key = c.parent_name || "Other";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(c);
+    }
+    for (const [parent, items] of map) {
+      groups.push({ parent, items });
+    }
+    return groups;
+  }, [filteredSellable]);
+
   const visibleProducts = showInactive
     ? products
     : products.filter((p) => p.provisioned && p.is_active);
 
   function resetFields() {
-    setCategoryId(sellableCategories[0]?.id ?? "");
+    setCategoryId("");
+    setCategoryQuery("");
     setProductName("");
     setBrand("");
     setBasePrice(0);
@@ -92,6 +155,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
 
   function startCreate() {
     resetFields();
+    refreshCategories();
     setShowForm(true);
   }
 
@@ -132,6 +196,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
       closeForm();
       resetFields();
       load();
+      refreshCategories();
       onChanged();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Save failed");
@@ -191,10 +256,11 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
   }
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="grid items-start gap-6 lg:grid-cols-[1fr_360px]">
       <div className="min-w-0 space-y-4">
         <p className="text-sm text-[var(--muted)]">
-          Pick a subcategory (e.g. Loafers, Formal Shirts). You can add multiple named products under the same subcategory, each with its own price and stock.
+          Pick a subcategory (e.g. Loafers, Formal Shirts, Puff Jacket). You can add multiple named
+          products under the same subcategory.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <select
@@ -204,7 +270,9 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
           >
             <option value="">All categories</option>
             {parentCategories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
           </select>
           <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
@@ -266,10 +334,18 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
                           className="neu-inset w-20 px-2 py-1 text-xs"
                           title="Cost"
                         />
-                        <button type="button" className="neu-btn px-2 py-1 text-xs accent-text" onClick={() => savePrice(p)}>
+                        <button
+                          type="button"
+                          className="neu-btn px-2 py-1 text-xs accent-text"
+                          onClick={() => savePrice(p)}
+                        >
                           Save
                         </button>
-                        <button type="button" className="neu-btn px-2 py-1 text-xs" onClick={() => setEditingPriceId(null)}>
+                        <button
+                          type="button"
+                          className="neu-btn px-2 py-1 text-xs"
+                          onClick={() => setEditingPriceId(null)}
+                        >
                           Cancel
                         </button>
                       </div>
@@ -277,7 +353,11 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
                       <>
                         {p.provisioned ? `KES ${p.base_price.toLocaleString()}` : "—"}
                         {p.provisioned && canEdit && (
-                          <button type="button" className="ml-2 text-xs accent-text underline" onClick={() => startPriceEdit(p)}>
+                          <button
+                            type="button"
+                            className="ml-2 text-xs accent-text underline"
+                            onClick={() => startPriceEdit(p)}
+                          >
                             Edit
                           </button>
                         )}
@@ -303,6 +383,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
                             onClick={() => {
                               setCategoryId(p.category_id);
                               setProductName("");
+                              setCategoryQuery("");
                               setShowForm(true);
                             }}
                           >
@@ -311,7 +392,11 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
                         ) : (
                           <>
                             {onOpenVariant && (
-                              <button type="button" className="neu-btn px-2 py-1 text-xs" onClick={() => startEdit(p)}>
+                              <button
+                                type="button"
+                                className="neu-btn px-2 py-1 text-xs"
+                                onClick={() => startEdit(p)}
+                              >
                                 Stock
                               </button>
                             )}
@@ -321,13 +406,18 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
                               onClick={() => {
                                 setCategoryId(p.category_id);
                                 setProductName("");
+                                setCategoryQuery("");
                                 setShowForm(true);
                               }}
                             >
                               + Same subcat
                             </button>
                             {p.is_active && (
-                              <button type="button" className="neu-btn px-2 py-1 text-xs text-red-700" onClick={() => deactivate(p)}>
+                              <button
+                                type="button"
+                                className="neu-btn px-2 py-1 text-xs text-red-700"
+                                onClick={() => deactivate(p)}
+                              >
                                 Deactivate
                               </button>
                             )}
@@ -341,7 +431,7 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
               {visibleProducts.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-[var(--muted)]">
-                    No subcategories in this category.
+                    No products in this category.
                   </td>
                 </tr>
               )}
@@ -353,102 +443,145 @@ export function ProductCrudPanel({ categories, onChanged, onOpenVariant, canEdit
 
       {canEdit ? (
         <aside className="sticky top-4 max-h-[calc(100vh-10rem)] self-start overflow-y-auto neu-flat p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold accent-text">Add product</h3>
-          <button type="button" className="neu-btn px-3 py-1.5 text-sm accent-text" onClick={startCreate}>
-            + Add
-          </button>
-        </div>
-
-        {!showForm ? (
-          <p className="text-sm text-[var(--muted)]">
-            Choose a subcategory, give the product a name, set price and stock. Add as many products as you need under the same subcategory.
-          </p>
-        ) : (
-          <div className="space-y-3 text-sm">
-            <p className="text-xs font-medium text-[var(--muted)]">Category › subcategory</p>
-            <select
-              value={categoryId}
-              onChange={(e) => {
-                setCategoryId(e.target.value);
-                setProductName("");
-              }}
-              className="neu-inset w-full px-3 py-2 text-sm"
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold accent-text">Add product</h3>
+            <button
+              type="button"
+              className="neu-btn px-3 py-1.5 text-sm accent-text"
+              onClick={startCreate}
             >
-              <option value="">Select subcategory</option>
-              {sellableCategories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.parent_name ? `${c.parent_name} › ${c.name}` : c.name}
-                </option>
-              ))}
-            </select>
-            <input
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-              placeholder={
-                productsInSelected.length > 0
-                  ? "Product name (required)"
-                  : `Product name (default: ${selectedCategory?.name ?? "subcategory"})`
-              }
-              className="neu-inset w-full px-3 py-2 text-sm"
-            />
-            {productsInSelected.length > 0 && (
-              <p className="text-[10px] text-[var(--muted)]">
-                {productsInSelected.length} product(s) already in this subcategory — use a unique name.
-              </p>
-            )}
-            <input
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              placeholder="Brand (optional)"
-              className="neu-inset w-full px-3 py-2 text-sm"
-            />
-            <input
-              type="number"
-              min={0}
-              value={basePrice || ""}
-              onChange={(e) => setBasePrice(Number(e.target.value))}
-              placeholder="List price (KES)"
-              className="neu-inset w-full px-3 py-2 text-sm"
-            />
-            <input
-              type="number"
-              min={0}
-              value={costPrice || ""}
-              onChange={(e) => setCostPrice(Number(e.target.value))}
-              placeholder="Cost price (KES)"
-              className="neu-inset w-full px-3 py-2 text-sm"
-            />
-            {!nameOnly && (
+              + Add
+            </button>
+          </div>
+
+          {!showForm ? (
+            <p className="text-sm text-[var(--muted)]">
+              Choose a subcategory from the full catalog ({sellableCategories.length} available), then
+              set name, price and stock.
+            </p>
+          ) : (
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="mb-1 text-xs font-medium text-[var(--muted)]">
+                  Category › subcategory ({sellableCategories.length} total)
+                </p>
+                <input
+                  value={categoryQuery}
+                  onChange={(e) => setCategoryQuery(e.target.value)}
+                  placeholder="Search e.g. puff, loafers, ties…"
+                  className="neu-inset mb-2 w-full px-3 py-2 text-sm"
+                />
+                {selectedCategory && (
+                  <p className="mb-2 rounded-lg bg-[var(--shadow-dark)]/10 px-3 py-2 text-xs">
+                    Selected:{" "}
+                    <strong className="accent-text">
+                      {selectedCategory.parent_name
+                        ? `${selectedCategory.parent_name} › ${selectedCategory.name}`
+                        : selectedCategory.name}
+                    </strong>
+                  </p>
+                )}
+                <div className="neu-inset max-h-56 overflow-y-auto p-1">
+                  {groupedSellable.length === 0 ? (
+                    <p className="px-2 py-3 text-xs text-[var(--muted)]">No matching subcategories.</p>
+                  ) : (
+                    groupedSellable.map((group) => (
+                      <div key={group.parent} className="mb-2">
+                        <p className="sticky top-0 bg-[var(--bg)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                          {group.parent}
+                        </p>
+                        {group.items.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setCategoryId(c.id);
+                              setProductName("");
+                            }}
+                            className={`block w-full rounded-md px-2 py-1.5 text-left text-xs ${
+                              categoryId === c.id
+                                ? "bg-[var(--shadow-dark)]/20 font-semibold accent-text"
+                                : "hover:bg-[var(--shadow-dark)]/10"
+                            }`}
+                          >
+                            {c.name}
+                          </button>
+                        ))}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
               <input
-                value={colors}
-                onChange={(e) => setColors(e.target.value)}
-                placeholder="Colors (comma-separated)"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                placeholder={
+                  productsInSelected.length > 0
+                    ? "Product name (required)"
+                    : `Product name (default: ${selectedCategory?.name ?? "subcategory"})`
+                }
                 className="neu-inset w-full px-3 py-2 text-sm"
               />
-            )}
-            <input
-              type="number"
-              min={0}
-              value={initialStock || ""}
-              onChange={(e) => setInitialStock(Number(e.target.value))}
-              placeholder="Initial stock per store"
-              className="neu-inset w-full px-3 py-2 text-sm"
-            />
-            <div className="flex gap-2">
-              <button type="button" onClick={save} className="neu-btn flex-1 py-2 accent-text">
-                Save product
-              </button>
-              <button type="button" onClick={closeForm} className="neu-btn px-3 py-2 text-sm">
-                Cancel
-              </button>
+              {productsInSelected.length > 0 && (
+                <p className="text-[10px] text-[var(--muted)]">
+                  {productsInSelected.length} product(s) already in this subcategory — use a unique
+                  name.
+                </p>
+              )}
+              <input
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                placeholder="Brand (optional)"
+                className="neu-inset w-full px-3 py-2 text-sm"
+              />
+              <input
+                type="number"
+                min={0}
+                value={basePrice || ""}
+                onChange={(e) => setBasePrice(Number(e.target.value))}
+                placeholder="List price (KES)"
+                className="neu-inset w-full px-3 py-2 text-sm"
+              />
+              <input
+                type="number"
+                min={0}
+                value={costPrice || ""}
+                onChange={(e) => setCostPrice(Number(e.target.value))}
+                placeholder="Cost price (KES)"
+                className="neu-inset w-full px-3 py-2 text-sm"
+              />
+              {!nameOnly && (
+                <input
+                  value={colors}
+                  onChange={(e) => setColors(e.target.value)}
+                  placeholder="Colors (comma-separated)"
+                  className="neu-inset w-full px-3 py-2 text-sm"
+                />
+              )}
+              <input
+                type="number"
+                min={0}
+                value={initialStock || ""}
+                onChange={(e) => setInitialStock(Number(e.target.value))}
+                placeholder="Initial stock per store"
+                className="neu-inset w-full px-3 py-2 text-sm"
+              />
+              <div className="flex gap-2">
+                <button type="button" onClick={save} className="neu-btn flex-1 py-2 accent-text">
+                  Save product
+                </button>
+                <button type="button" onClick={closeForm} className="neu-btn px-3 py-2 text-sm">
+                  Cancel
+                </button>
+              </div>
+              {msg && <p className="text-xs text-[var(--muted)]">{msg}</p>}
             </div>
-            {msg && <p className="text-xs text-[var(--muted)]">{msg}</p>}
-          </div>
-        )}
-      </aside>
+          )}
+        </aside>
       ) : (
-        <p className="text-sm text-[var(--muted)]">View-only — pricing and setup require inventory edit permission.</p>
+        <p className="text-sm text-[var(--muted)]">
+          View-only — pricing and setup require inventory edit permission.
+        </p>
       )}
     </div>
   );
